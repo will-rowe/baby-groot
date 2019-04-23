@@ -1,0 +1,53 @@
+// this package is used to process and convert between MSA, GFA graphs and GROOT graphs
+package graph
+
+import (
+	"fmt"
+	"sync"
+
+	"github.com/will-rowe/bg/src/bitvector"
+)
+
+// Nodes is a type that implements the sort interface
+type Nodes []uint64
+
+func (a Nodes) Len() int           { return len(a) }
+func (a Nodes) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a Nodes) Less(i, j int) bool { return a[i] < a[j] }
+
+/*
+   GrootGraphNode is a GFA segment (plus the extra info from path, links etc.)
+*/
+type GrootGraphNode struct {
+	SegmentID uint64
+	Sequence  []byte
+	OutEdges  Nodes
+	PathIDs   []int               // PathIDs are the lookup IDs to the linear reference sequences that use this segment (value corresponds to key in GrootGraph.Paths)
+	Weight    float64             // Weight corresponds to the segment's share of k-mers from a project sketch
+	Coverage  bitvector.BitVector // Coverage is a bit vector that tracks which bases in this GFA segment are covered by mapped reads
+	nodeLock  sync.RWMutex        // lock the node for write access
+}
+
+// IncrementWeight is a method to increment a node's k-mer count
+func (node *GrootGraphNode) IncrementWeight(increment float64) error {
+	if increment <= 0.0 {
+		return fmt.Errorf("positive increment not received: %f", increment)
+	}
+	node.nodeLock.Lock()
+	defer node.nodeLock.Unlock()
+	node.Weight += increment
+	return nil
+}
+
+// AddCoverage is a method to mark a region within a node as covered, given the start position and the number of bases to cover
+func (node *GrootGraphNode) AddCoverage(start, numberOfBases int) {
+	// if numberOfBases is greater than the sequence length, just mark to the end of the node sequence
+	if numberOfBases >= len(node.Sequence) {
+		numberOfBases = len(node.Sequence)
+	}
+	node.nodeLock.Lock()
+	defer node.nodeLock.Unlock()
+	for i := start; i < numberOfBases; i++ {
+		node.Coverage.Add(i)
+	}
+}
