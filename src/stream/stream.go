@@ -13,10 +13,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/will-rowe/bg/src/graph"
-	"github.com/will-rowe/bg/src/lshForest"
-	"github.com/will-rowe/bg/src/misc"
-	"github.com/will-rowe/bg/src/seqio"
+	"github.com/will-rowe/baby-groot/src/graph"
+	"github.com/will-rowe/baby-groot/src/lshForest"
+	"github.com/will-rowe/baby-groot/src/misc"
+	"github.com/will-rowe/baby-groot/src/seqio"
 )
 
 const (
@@ -159,7 +159,6 @@ type FastqChecker struct {
 	Output        chan seqio.FASTQread
 	WindowSize    int
 	MinReadLength int
-	MinQual       int
 }
 
 func NewFastqChecker() *FastqChecker {
@@ -176,21 +175,7 @@ func (proc *FastqChecker) Run() {
 		rawCount++
 		//  tally the length so we can report the mean
 		lengthTotal += len(read.Seq)
-		// quality-based trim the read if requested -- moving this in to the alignment routine for now...
-		if proc.MinQual != 0 {
-			wg.Add(1)
-			go func(read seqio.FASTQread) {
-				defer wg.Done()
-				read.QualTrim(proc.MinQual)
-				// only send read on if it is greater than the length cutoff
-				if len(read.Seq) > proc.MinReadLength {
-					proc.Output <- read
-				}
-			}(read)
-			// if trimming wasn't requested, only send read on if it is greater than the length cutoff
-		} else {
-			proc.Output <- read
-		}
+		proc.Output <- read
 	}
 	wg.Wait()
 	// check we have received reads & print stats
@@ -212,18 +197,16 @@ func (proc *FastqChecker) Run() {
 type DbQuerier struct {
 	process
 	Input       chan seqio.FASTQread
-	Output      chan seqio.FASTQread
 	Db          lshForest.GROOTindex
 	CommandInfo *misc.IndexInfo
 	GraphStore  graph.GraphStore
 }
 
 func NewDbQuerier() *DbQuerier {
-	return &DbQuerier{Output: make(chan seqio.FASTQread, BUFFERSIZE)}
+	return &DbQuerier{}
 }
 
 func (proc *DbQuerier) Run() {
-	defer close(proc.Output)
 	// record the number of reads processed by the DbQuerier
 	readTally, mappedTally, multiMappedTally := 0, 0, 0
 	var wg sync.WaitGroup
@@ -233,28 +216,22 @@ func (proc *DbQuerier) Run() {
 		go func(read seqio.FASTQread) {
 			defer wg.Done()
 			mapped := false
-			// try aligning the read and then its reverse complement
-			for i := 0; i < 2; i++ {
-				if i == 1 {
-					read.RevComplement()
-				}
-				// get signature for read
-				readSketch, err := read.RunMinHash(proc.CommandInfo.Ksize, proc.CommandInfo.SigSize)
+			// get sketch for read
+			readSketch, err := read.RunMinHash(proc.CommandInfo.Ksize, proc.CommandInfo.SigSize)
+			misc.ErrorCheck(err)
+			// query the LSH forest
+			for _, result := range proc.Db.Query(readSketch) {
+				mapped = true
+				// convert the stringified db match for this mapping to the constituent parts (graph, node, offset)
+				alignment, err := proc.Db.GetKey(result)
 				misc.ErrorCheck(err)
-				// query the LSH forest
-				for _, result := range proc.Db.Query(readSketch) {
-					mapped = true
-					// convert the stringified db match for this mapping to the constituent parts (graph, node, offset)
-					alignment, err := proc.Db.GetKey(result)
-					misc.ErrorCheck(err)
-					// was the read reverse complemented to get it to map?
-					alignment.RC = read.RC
-					// attach the mapping info to the read
-					read.Alignments = append(read.Alignments, alignment)
-					// project the sketch of this read onto the graph and increment the k-mer count for each segment in the projection's subpaths
-					// this also updates the segment coverage information, using a bit vector to indicate when a base is covered
-					misc.ErrorCheck(proc.GraphStore[alignment.GraphID].IncrementSubPath(alignment.SubPath, alignment.OffSet, len(read.Seq), proc.CommandInfo.Ksize))
-				}
+
+				// attach the mapping info to the read
+				read.Alignments = append(read.Alignments, alignment)
+				// project the sketch of this read onto the graph and increment the k-mer count for each segment in the projection's subpaths
+				// this also updates the segment coverage information, using a bit vector to indicate when a base is covered
+				misc.ErrorCheck(proc.GraphStore[alignment.GraphID].IncrementSubPath(alignment.SubPath, alignment.OffSet, len(read.Seq), proc.CommandInfo.Ksize))
+
 			}
 			// BABY GROOT - re-evaluate channel usage
 			if mapped == true {
@@ -268,13 +245,12 @@ func (proc *DbQuerier) Run() {
 		wg.Wait()
 		close(collectionChan)
 	}()
-	// collect the mapping positions and send on the mapped read
+	// collect the mapped reads
 	for mappedRead := range collectionChan {
 		mappedTally++
 		if len(mappedRead.Alignments) > 1 {
 			multiMappedTally++
 		}
-		proc.Output <- mappedRead
 	}
 
 	// log some stuff
@@ -290,27 +266,4 @@ func (proc *DbQuerier) Run() {
 		log.Printf("\t\tuniquely mapped: %d\n", (mappedTally - multiMappedTally))
 		log.Printf("\t\tmultimapped: %d\n", multiMappedTally)
 	}
-}
-
-/*
-  A process to align reads once they have been seeded against a graph
-*/
-type Aligner struct {
-	process
-	Input      chan seqio.FASTQread
-	GraphStore graph.GraphStore
-	Ksize      int
-}
-
-func NewAligner() *Aligner {
-	return &Aligner{}
-}
-
-func (proc *Aligner) Run() {
-
-	// receive seeded reads
-	for _ = range proc.Input {
-
-	}
-
 }

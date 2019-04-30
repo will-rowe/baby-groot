@@ -33,11 +33,11 @@ import (
 	"github.com/biogo/biogo/seq/multi"
 	"github.com/pkg/profile"
 	"github.com/spf13/cobra"
-	"github.com/will-rowe/bg/src/graph"
-	"github.com/will-rowe/bg/src/lshForest"
-	"github.com/will-rowe/bg/src/misc"
-	"github.com/will-rowe/bg/src/seqio"
-	"github.com/will-rowe/bg/src/version"
+	"github.com/will-rowe/baby-groot/src/graph"
+	"github.com/will-rowe/baby-groot/src/lshForest"
+	"github.com/will-rowe/baby-groot/src/misc"
+	"github.com/will-rowe/baby-groot/src/seqio"
+	"github.com/will-rowe/baby-groot/src/version"
 	"github.com/will-rowe/gfa"
 )
 
@@ -45,7 +45,7 @@ import (
 var (
 	kSize         *int                                                             // size of k-mer
 	sigSize       *int                                                             // size of MinHash signature
-	readLength    *int                                                             // length of query reads (used during alignment subcommand), needed as window length should ~= read length
+	windowSize    *int                                                             // length of query reads (used during alignment subcommand), needed as window length should ~= read length
 	jsThresh      *float64                                                         // minimum Jaccard similarity for LSH forest query
 	msaDir        *string                                                          // directory containing the input MSA files
 	msaList       []string                                                         // the collected MSA files
@@ -70,7 +70,7 @@ var indexCmd = &cobra.Command{
 func init() {
 	kSize = indexCmd.Flags().IntP("kmerSize", "k", 7, "size of k-mer")
 	sigSize = indexCmd.Flags().IntP("sigSize", "s", 128, "size of MinHash signature")
-	readLength = indexCmd.Flags().IntP("readLength", "l", 100, "length of query reads (which will be aligned during the align subcommand)")
+	windowSize = indexCmd.Flags().IntP("windowSize", "w", 100, "size of window to sketch graph traversals with")
 	jsThresh = indexCmd.Flags().Float64P("jsThresh", "j", 0.99, "minimum Jaccard similarity for a seed to be recorded")
 	msaDir = indexCmd.Flags().StringP("msaDir", "i", "", "directory containing the clustered references (MSA files) - required")
 	outDir = indexCmd.PersistentFlags().StringP("outDir", "o", defaultOutDir, "directory to save index files to")
@@ -102,7 +102,7 @@ func indexParamCheck() error {
 		return fmt.Errorf("no MSA files (.msa) found in the supplied directory")
 	}
 	// TODO: check the supplied arguments to make sure they don't conflict with each other eg:
-	if *kSize > *readLength {
+	if *kSize > *windowSize {
 		return fmt.Errorf("supplied k-mer size greater than read length")
 	}
 	// setup the outDir
@@ -139,7 +139,7 @@ func runIndex() {
 	log.Printf("\tprocessors: %d", *proc)
 	log.Printf("\tk-mer size: %d", *kSize)
 	log.Printf("\tsignature size: %d", *sigSize)
-	log.Printf("\tread length (window size): %d", *readLength)
+	log.Printf("\tread length (window size): %d", *windowSize)
 	log.Printf("\tnumber of MSA files found: %d", len(msaList))
 	///////////////////////////////////////////////////////////////////////////////////////
 	log.Printf("building groot graphs...")
@@ -188,7 +188,7 @@ func runIndex() {
 			defer wg.Done()
 			keyChecker := make(map[string]string)
 			// create sketch for each window in the graph
-			for window := range grootGraph.WindowGraph(*readLength, *kSize, *sigSize) {
+			for window := range grootGraph.WindowGraph(*windowSize, *kSize, *sigSize) {
 
 				// there may be multiple copies of the same window key
 				// - one graph+node+offset can have several subpaths to window
@@ -234,7 +234,7 @@ func runIndex() {
 	log.Printf("\tnumber of sketches added: %d\n", sketchCount)
 	///////////////////////////////////////////////////////////////////////////////////////
 	// record runtime info
-	info := &misc.IndexInfo{Version: version.VERSION, Ksize: *kSize, SigSize: *sigSize, JSthresh: *jsThresh, ReadLength: *readLength}
+	info := &misc.IndexInfo{Version: version.VERSION, Ksize: *kSize, SigSize: *sigSize, JSthresh: *jsThresh, WindowSize: *windowSize}
 	// save the index files
 	log.Printf("saving index files to \"%v\"...", *outDir)
 	misc.ErrorCheck(info.Dump(*outDir + "/index.info"))

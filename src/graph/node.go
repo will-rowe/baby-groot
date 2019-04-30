@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/will-rowe/bg/src/bitvector"
+	"github.com/will-rowe/baby-groot/src/bitvector"
 )
 
 // Nodes is a type that implements the sort interface

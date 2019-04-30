@@ -10,8 +10,8 @@ import (
 	"time"
 
 	rng "github.com/leesper/go_rng"
-	"github.com/will-rowe/bg/src/bitvector"
-	"github.com/will-rowe/bg/src/seqio"
+	"github.com/will-rowe/baby-groot/src/bitvector"
+	"github.com/will-rowe/baby-groot/src/seqio"
 	"github.com/will-rowe/gfa"
 )
 

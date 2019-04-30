@@ -100,7 +100,7 @@ type IndexInfo struct {
 	Ksize      int
 	SigSize    int
 	JSthresh   float64
-	ReadLength int
+	WindowSize int
 }
 
 // method to dump the info to file

@@ -9,7 +9,7 @@ This allele clusters with 81 other variants of blaOXA (90% clustering identity).
 * simulate the reads with BBMap
 
 ```
-randomreads.sh ref=blaOXA-90.fna out=blaOXA-90-reads.1000.fq length=100 reads=1000
+randomreads.sh ref=blaOXA-90.fna out=blaOXA-90-reads.1000.snps.fq length=100 reads=1000 adderrors=t maxsnps=2 snprate=0.2 seed=5
 ```
 
 * create and index the graphs

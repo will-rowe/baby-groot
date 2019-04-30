@@ -8,8 +8,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/will-rowe/bg/src/misc"
-	"github.com/will-rowe/bg/src/seqio"
+	"github.com/will-rowe/baby-groot/src/misc"
+	"github.com/will-rowe/baby-groot/src/seqio"
 	"gopkg.in/vmihailenco/msgpack.v2"
 )
 

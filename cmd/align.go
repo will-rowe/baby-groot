@@ -27,25 +27,24 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/profile"
 	"github.com/spf13/cobra"
-	"github.com/will-rowe/bg/src/graph"
-	"github.com/will-rowe/bg/src/lshForest"
-	"github.com/will-rowe/bg/src/misc"
-	"github.com/will-rowe/bg/src/stream"
-	"github.com/will-rowe/bg/src/version"
+	"github.com/will-rowe/baby-groot/src/graph"
+	"github.com/will-rowe/baby-groot/src/lshForest"
+	"github.com/will-rowe/baby-groot/src/misc"
+	"github.com/will-rowe/baby-groot/src/stream"
+	"github.com/will-rowe/baby-groot/src/version"
 )
 
 // the command line arguments
 var (
-	trimSwitch      *bool                                                             // enable quality based trimming of reads
-	minQual         *int                                                              // minimum base quality (used in quality based trimming)
-	minRL           *int                                                              // minimum read length (evaluated post trimming)
-	clip            *int                                                              // maximum number of clipped bases allowed during local alignment
 	indexDir        *string                                                           // directory containing the index files
 	fastq           *[]string                                                         // list of FASTQ files to align
+	minKmerCoverage *int                                                              // the minimum k-mer coverage per base of a segment
+	minBaseCoverage *float64                                                          // percentage of the segment bases that had reads align
 	graphDir        *string                                                           // directory to save gfa graphs to
 	defaultGraphDir = "./groot-graphs-" + string(time.Now().Format("20060102150405")) // a default graphDir
 )
@@ -67,12 +66,10 @@ var alignCmd = &cobra.Command{
   A function to initialise the command line arguments
 */
 func init() {
-	trimSwitch = alignCmd.Flags().Bool("trim", false, "enable quality based trimming of reads (post seeding)")
-	minQual = alignCmd.Flags().IntP("minQual", "q", 20, "minimum base quality (used in quality based trimming)")
-	minRL = alignCmd.Flags().IntP("minRL", "l", 100, "minimum read length (evaluated post trimming)")
-	clip = alignCmd.Flags().IntP("clip", "c", 5, "maximum number of clipped bases allowed during local alignment")
 	indexDir = alignCmd.Flags().StringP("indexDir", "i", "", "directory containing the index files - required")
 	fastq = alignCmd.Flags().StringSliceP("fastq", "f", []string{}, "FASTQ file(s) to align")
+	minKmerCoverage = alignCmd.Flags().IntP("minKmerCov", "k", 1, "minimum k-mer coverage per base of a segment")
+	minBaseCoverage = alignCmd.Flags().Float64P("minBaseCov", "c", 0.1, "percentage of the graph segment bases that must have reads align")
 	graphDir = alignCmd.PersistentFlags().StringP("graphDir", "o", defaultGraphDir, "directory to save variation graphs to")
 	alignCmd.MarkFlagRequired("indexDir")
 	RootCmd.AddCommand(alignCmd)
@@ -146,6 +143,10 @@ func alignParamCheck() error {
 			return fmt.Errorf("can't create specified output directory")
 		}
 	}
+	// check the thresholds
+	if *minBaseCoverage < 0.0 || *minBaseCoverage > 1.0 {
+		return fmt.Errorf("minimum base coverage must be between 0.0 and 1.0")
+	}
 	// set number of processors to use
 	if *proc <= 0 || *proc > runtime.NumCPU() {
 		*proc = runtime.NumCPU()
@@ -172,15 +173,9 @@ func runAlign() {
 	// check the supplied files and then log some stuff
 	log.Printf("checking parameters...")
 	misc.ErrorCheck(alignParamCheck())
+	log.Printf("\tminimum k-mer frequency: %d", *minKmerCoverage)
+	log.Printf("\tminimum base coverage: %0.0f%%", *minBaseCoverage*100)
 	log.Printf("\tprocessors: %d", *proc)
-	if *trimSwitch {
-		log.Printf("\tread trimming: enabled")
-		log.Printf("\tminimum base quality: %d", *minQual)
-		log.Printf("\tminimum read length: %d", *minRL)
-	} else {
-		log.Printf("\tread trimming: disabled")
-	}
-	log.Printf("\tmaximum clipped bases allowed: %d", *clip)
 	for _, file := range *fastq {
 		log.Printf("\tinput file: %v", file)
 	}
@@ -190,12 +185,12 @@ func runAlign() {
 	log.Printf("\tk-mer size: %d\n", info.Ksize)
 	log.Printf("\tsignature size: %d\n", info.SigSize)
 	log.Printf("\tJaccard similarity theshold: %0.2f\n", info.JSthresh)
-	log.Printf("\twindow size used in indexing: %d\n", info.ReadLength)
+	log.Printf("\twindow size used in indexing: %d\n", info.WindowSize)
 	log.Print("loading the groot graphs...")
 	graphStore := make(graph.GraphStore)
 	misc.ErrorCheck(graphStore.Load(*indexDir + "/index.graph"))
 	log.Printf("\tnumber of variation graphs: %d\n", len(graphStore))
-	log.Print("loading the MinHash signatures...")
+	log.Print("loading the MinHash sketches...")
 	database := lshForest.NewLSHforest(info.SigSize, info.JSthresh)
 	misc.ErrorCheck(database.Load(*indexDir + "/index.sigs"))
 	database.Index()
@@ -214,49 +209,52 @@ func runAlign() {
 	fastqHandler := stream.NewFastqHandler()
 	fastqChecker := stream.NewFastqChecker()
 	dbQuerier := stream.NewDbQuerier()
-	graphAligner := stream.NewAligner()
 
 	// add in the process parameters
 	dataStream.InputFile = *fastq
-	fastqChecker.WindowSize = info.ReadLength
+	fastqChecker.WindowSize = info.WindowSize
 	dbQuerier.Db = database
 	dbQuerier.CommandInfo = info
 	dbQuerier.GraphStore = graphStore
-	graphAligner.GraphStore = graphStore
-	graphAligner.Ksize = info.Ksize
 
 	// arrange pipeline processes
 	log.Printf("\tconnecting data streams")
 	fastqHandler.Input = dataStream.Output
 	fastqChecker.Input = fastqHandler.Output
 	dbQuerier.Input = fastqChecker.Output
-	graphAligner.Input = dbQuerier.Output
 
 	// submit each process to the pipeline to be run
-	pipeline.AddProcesses(dataStream, fastqHandler, fastqChecker, dbQuerier, graphAligner)
+	pipeline.AddProcesses(dataStream, fastqHandler, fastqChecker, dbQuerier)
 	log.Printf("\tnumber of processes added to the alignment pipeline: %d\n", len(pipeline.Processes))
 	pipeline.Run()
+
+	// prune the graphs
+	log.Printf("pruning graphs...")
+	graphChan := make(chan *graph.GrootGraph)
+	var wg sync.WaitGroup
+	go func() {
+		wg.Wait()
+		close(graphChan)
+	}()
+	for _, g := range graphStore {
+		wg.Add(1)
+		go func(graph *graph.GrootGraph) {
+			defer wg.Done()
+			// check for alignments and prune the graph
+			keepGraph := graph.Prune(float64(*minKmerCoverage), *minBaseCoverage)
+
+			// check we have some graph
+			if keepGraph != false {
+				graphChan <- graph
+			}
+		}(g)
+	}
 
 	// save the graph files
 	log.Printf("saving graphs to \"./%v/\"...", *graphDir)
 	graphCounter := 0
 	pathCounter := 0
-	// TODO: run this concurrently
-	for _, graph := range graphStore {
-
-		// TODO: user to set these
-		minKmerCoverage := 1   // the minimum k-mer coverage per base of a segment
-		minBaseCoverage := 0.1 // percentage of the segment bases that had reads align
-
-		// check for alignments and prune the graph
-		keepGraph := graph.Prune(float64(minKmerCoverage), minBaseCoverage)
-
-		// check we have some graph
-		if keepGraph == false {
-			continue
-		}
-
-		// write the graph
+	for graph := range graphChan {
 		graph.GrootVersion = version.VERSION
 		fileName := fmt.Sprintf("%v/groot-graph-%d.gfa", *graphDir, graph.GraphID)
 		graphWritten, err := graph.SaveGraphAsGFA(fileName)

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/will-rowe/bg/src/markov"
+	"github.com/will-rowe/baby-groot/src/markov"
 	"github.com/will-rowe/gfa"
 )
 

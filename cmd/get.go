@@ -45,7 +45,7 @@ var md5sums = map[string]string{
 }
 
 // url to download databases from
-var dbUrl = "https://github.com/will-rowe/bg/raw/master/db/clustered-ARG-databases/"
+var dbUrl = "https://github.com/will-rowe/baby-groot/raw/master/db/clustered-ARG-databases/"
 
 // the command line arguments
 var (

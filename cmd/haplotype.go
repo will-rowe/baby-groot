@@ -32,10 +32,10 @@ import (
 
 	"github.com/pkg/profile"
 	"github.com/spf13/cobra"
-	"github.com/will-rowe/bg/src/graph"
-	"github.com/will-rowe/bg/src/markov"
-	"github.com/will-rowe/bg/src/misc"
-	"github.com/will-rowe/bg/src/version"
+	"github.com/will-rowe/baby-groot/src/graph"
+	"github.com/will-rowe/baby-groot/src/markov"
+	"github.com/will-rowe/baby-groot/src/misc"
+	"github.com/will-rowe/baby-groot/src/version"
 	"github.com/will-rowe/gfa"
 )
 
@@ -181,7 +181,7 @@ func runHaplotype() {
 	log.Printf("\tk-mer size: %d\n", info.Ksize)
 	log.Printf("\tsignature size: %d\n", info.SigSize)
 	log.Printf("\tJaccard similarity theshold: %0.2f\n", info.JSthresh)
-	log.Printf("\twindow size used in indexing: %d\n", info.ReadLength)
+	log.Printf("\twindow size used in indexing: %d\n", info.WindowSize)
 	log.Print("loading the graphs...")
 	log.Printf("\tnumber of weighted GFAs for haplotyping: %d", len(graphList))
 	///////////////////////////////////////////////////////////////////////////////////////

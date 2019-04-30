@@ -5,8 +5,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/will-rowe/bg/src/markov"
-	"github.com/will-rowe/bg/src/misc"
+	"github.com/will-rowe/baby-groot/src/markov"
+	"github.com/will-rowe/baby-groot/src/misc"
 )
 
 // grootGraphPath

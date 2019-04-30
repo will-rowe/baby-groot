@@ -7,7 +7,7 @@ import (
 	"errors"
 	"unicode"
 
-	"github.com/will-rowe/bg/src/minhash"
+	"github.com/will-rowe/baby-groot/src/minhash"
 )
 
 const (
