@@ -190,7 +190,7 @@ func runAlign() {
 	log.Printf("\tk-mer size: %d\n", info.Ksize)
 	log.Printf("\tsignature size: %d\n", info.SigSize)
 	log.Printf("\tJaccard similarity theshold: %0.2f\n", info.JSthresh)
-	log.Printf("\twindow sized used in indexing: %d\n", info.ReadLength)
+	log.Printf("\twindow size used in indexing: %d\n", info.ReadLength)
 	log.Print("loading the groot graphs...")
 	graphStore := make(graph.GraphStore)
 	misc.ErrorCheck(graphStore.Load(*indexDir + "/index.graph"))
@@ -238,15 +238,15 @@ func runAlign() {
 	pipeline.Run()
 
 	// save the graph files
-	log.Printf("saving graphs to \"%v\"...", *graphDir)
-	counter := 0
-
-	// TODO: run this in go routines
+	log.Printf("saving graphs to \"./%v/\"...", *graphDir)
+	graphCounter := 0
+	pathCounter := 0
+	// TODO: run this concurrently
 	for _, graph := range graphStore {
 
 		// TODO: user to set these
-		minKmerCoverage := 20  // the minimum k-mer coverage per base of a segment
-		minBaseCoverage := 0.0 // percentage of the segment bases that had reads align
+		minKmerCoverage := 1   // the minimum k-mer coverage per base of a segment
+		minBaseCoverage := 0.1 // percentage of the segment bases that had reads align
 
 		// check for alignments and prune the graph
 		keepGraph := graph.Prune(float64(minKmerCoverage), minBaseCoverage)
@@ -256,19 +256,20 @@ func runAlign() {
 			continue
 		}
 
-		// print seqs
-		for i, path := range graph.Paths {
-			fmt.Println(string(path))
-			fmt.Println(string(graph.Graph2Seq(i)))
-		}
-
 		// write the graph
 		graph.GrootVersion = version.VERSION
-		graphWritten, err := graph.SaveGraphAsGFA(*graphDir)
+		fileName := fmt.Sprintf("%v/groot-graph-%d.gfa", *graphDir, graph.GraphID)
+		graphWritten, err := graph.SaveGraphAsGFA(fileName)
 		misc.ErrorCheck(err)
-		counter += graphWritten
+		graphCounter += graphWritten
+		pathCounter += len(graph.Paths)
+		log.Printf("\tgraph %d has %d remaining paths after weighting and pruning", graph.GraphID, len(graph.Paths))
+		for _, path := range graph.Paths {
+			log.Printf("\t- [%v]", string(path))
+		}
 	}
 
-	log.Printf("\tnumber of graphs written to disk: %d\n", counter)
+	log.Printf("\ttotal number of graphs written to disk: %d\n", graphCounter)
+	log.Printf("\ttotal number of possible alleles found: %d\n", pathCounter)
 	log.Println("finished")
 }

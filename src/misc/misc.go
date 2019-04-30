@@ -68,7 +68,7 @@ func StartLogging(logFile string) *os.File {
 	return logFH
 }
 
-// a function to print an array of unsigned integers as a string - taken from https://github.com/ekzhu/minhash-lsh TODO: benchmark with other stringify options
+// Stringify is a function to print an array of unsigned integers as a string - taken from https://github.com/ekzhu/minhash-lsh TODO: benchmark with other stringify options
 func Stringify(sig []uint64) string {
 	s := make([]byte, HASH_SIZE*len(sig))
 	buf := make([]byte, 8)
@@ -77,6 +77,19 @@ func Stringify(sig []uint64) string {
 		copy(s[i*HASH_SIZE:(i+1)*HASH_SIZE], buf[:HASH_SIZE])
 	}
 	return string(s)
+}
+
+// Uint64SliceEqual returns true if two uint64[] are identical
+func Uint64SliceEqual(a []uint64, b []uint64) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 /*

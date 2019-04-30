@@ -9,7 +9,7 @@ import (
 )
 
 // if set true, ntHash will return the canonical k-mer (inspects both strands for each k-mer and returns the lowest hash value)
-const CANONICAL = true
+const CANONICAL = false
 
 // minHash struct contains all the minimum hash values for a sequence
 type minHash struct {

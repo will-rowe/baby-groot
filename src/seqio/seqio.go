@@ -52,6 +52,7 @@ type Key struct {
 	Ref            int      // the first reference sequence this subpath was derived from (only used to differentiate duplicate sketches)
 	Sketch         []uint64
 	StringifiedKey string
+	RC             bool
 }
 
 // method to check for ACTGN bases and to convert bases to upper case TODO: improve the efficiency of this...

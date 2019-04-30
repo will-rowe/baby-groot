@@ -1,12 +1,12 @@
 package graph
 
 import (
-	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/will-rowe/bg/src/markov"
 	"github.com/will-rowe/gfa"
 )
 
@@ -18,31 +18,6 @@ var (
 	sigSize    = 128
 	blaB10     = []byte("ATGAAAGGATTAAAAGGGCTATTGGTTCTGGCTTTAGGCTTTACAGGACTACAGGTTTTTGGGCAACAGAACCCTGATATTAAAATTGAAAAATTAAAAGATAATTTATACGTCTATACAACCTATAATACCTTCAAAGGAACTAAATATGCGGCTAATGCGGTATATATGGTAACCGATAAAGGAGTAGTGGTTATAGACTCTCCATGGGGAGAAGATAAATTTAAAAGTTTTACAGACGAGATTTATAAAAAGCACGGAAAGAAAGTTATCATGAACATTGCAACCCACTCTCATGATGATAGAGCCGGAGGTCTTGAATATTTTGGTAAACTAGGTGCAAAAACTTATTCTACTAAAATGACAGATTCTATTTTAGCAAAAGAGAATAAGCCAAGAGCAAAGTACACTTTTGATAATAATAAATCTTTTAAAGTAGGAAAGACTGAGTTTCAGGTTTATTATCCGGGAAAAGGTCATACAGCAGATAATGTGGTTGTGTGGTTTCCTAAAGACAAAGTATTAGTAGGAGGCTGCATTGTAAAAAGTGGTGATTCGAAAGACCTTGGGTTTATTGGGGAAGCTTATGTAAACGACTGGACACAGTCCATACACAACATTCAGCAGAAATTTCCCTATGTTCAGTATGTCGTTGCAGGTCATGACGACTGGAAAGATCAAACATCAATACAACATACACTGGATTTAATCAGTGAATATCAACAAAAACAAAAGGCTTCAAATTAA")
 )
-
-func loadGFA() *gfa.GFA {
-	// load the GFA file
-	fh, err := os.Open(inputFile)
-	reader, err := gfa.NewReader(fh)
-	if err != nil {
-		log.Fatalf("can't read gfa file: %v", err)
-	}
-	// collect the GFA instance
-	myGFA := reader.CollectGFA()
-	// read the file
-	for {
-		line, err := reader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Fatalf("error reading line in gfa file: %v", err)
-		}
-		if err := line.Add(myGFA); err != nil {
-			log.Fatalf("error adding line to GFA instance: %v", err)
-		}
-	}
-	return myGFA
-}
 
 func loadMSA() *gfa.GFA {
 	// load the MSA
@@ -57,35 +32,24 @@ func loadMSA() *gfa.GFA {
 
 // test CreateGrootGraph
 func TestCreateGrootGraph(t *testing.T) {
-	myGFA := loadGFA()
-	_, err := CreateGrootGraph(myGFA, 1)
+	myGFA, err := LoadGFA(inputFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = CreateGrootGraph(myGFA, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 // test Graph2Seq
-func TestGraph2Seq(t *testing.T) {
-	myGFA := loadGFA()
-	grootGraph, err := CreateGrootGraph(myGFA, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for pathID, pathName := range grootGraph.Paths {
-		t.Log(string(pathName))
-		t.Log(string(grootGraph.Graph2Seq(pathID)))
-		if string(pathName) == "*argannot~~~(Bla)B-10~~~AY348325:1-747" {
-			if string(grootGraph.Graph2Seq(pathID)) != string(blaB10) {
-				t.Fatal("Graph2Seq did not reproduce blaB-10 sequence from GFA file")
-			}
-		}
-	}
+func TestGraph2Seqs(t *testing.T) {
+	t.Log("replace")
 }
 
 // test WindowGraph
 func TestWindowGraph(t *testing.T) {
 	myGFA := loadMSA()
-	//myGFA := loadGFA()
 	grootGraph, err := CreateGrootGraph(myGFA, 1)
 	if err != nil {
 		t.Fatal(err)
@@ -99,9 +63,66 @@ func TestWindowGraph(t *testing.T) {
 	t.Log("number of windows with unique signatures: ", counter)
 }
 
+/*
+// test ChainSegments
+func TestChainSegments(t *testing.T) {
+	myGFA := loadMSA()
+	grootGraph, err := CreateGrootGraph(myGFA, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chains, err := grootGraph.chainSegments(0, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	counter := 0
+	for _, chain := range chains {
+		counter++
+		t.Log(chain)
+	}
+	if counter != 2 {
+		t.Fatal("two chains should be formed from this node")
+	}
+	err = grootGraph.BuildMarkovModel(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+*/
+
+// test FindMarkovPaths
+func TestFindMarkovPaths(t *testing.T) {
+	myGFA, err := LoadGFA("test2.gfa")
+	if err != nil {
+		t.Fatal(err)
+	}
+	grootGraph, err := CreateGrootGraph(myGFA, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chainOrder := 7
+	chain := markov.NewChain(chainOrder)
+	err = grootGraph.BuildMarkovChain(chain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = grootGraph.FindMarkovPaths(chain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = grootGraph.ProcessMarkovPaths()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+}
+
 // test GraphStore dump/load
 func TestGraphStore(t *testing.T) {
-	myGFA := loadGFA()
+	myGFA, err := LoadGFA(inputFile)
+	if err != nil {
+		t.Fatal(err)
+	}
 	grootGraph, err := CreateGrootGraph(myGFA, 1)
 	if err != nil {
 		t.Fatal(err)
@@ -121,13 +142,16 @@ func TestGraphStore(t *testing.T) {
 
 // test SaveGraphAsGFA to save a gfa
 func TestGraphDump(t *testing.T) {
-	myGFA := loadGFA()
+	myGFA, err := LoadGFA(inputFile)
+	if err != nil {
+		t.Fatal(err)
+	}
 	grootGraph, err := CreateGrootGraph(myGFA, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// add a dummy read so that the graph will write
-	grootGraph.SortedNodes[0].IncrementWeight(100.0)
+	grootGraph.SortedNodes[0].IncrementKmerFreq(100.0)
 	written, err := grootGraph.SaveGraphAsGFA(".")
 	if err != nil {
 		t.Fatal(err)

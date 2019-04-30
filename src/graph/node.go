@@ -23,31 +23,31 @@ type GrootGraphNode struct {
 	Sequence  []byte
 	OutEdges  Nodes
 	PathIDs   []int               // PathIDs are the lookup IDs to the linear reference sequences that use this segment (value corresponds to key in GrootGraph.Paths)
-	Weight    float64             // Weight corresponds to the segment's share of k-mers from a project sketch
+	KmerFreq  float64             // KmerFreq is the number of k-mers belonging to this node
 	Coverage  bitvector.BitVector // Coverage is a bit vector that tracks which bases in this GFA segment are covered by mapped reads
 	nodeLock  sync.RWMutex        // lock the node for write access
 }
 
-// IncrementWeight is a method to increment a node's k-mer count
-func (node *GrootGraphNode) IncrementWeight(increment float64) error {
+// IncrementKmerFreq is a method to increment a node's k-mer count
+func (GrootGraphNode *GrootGraphNode) IncrementKmerFreq(increment float64) error {
 	if increment <= 0.0 {
 		return fmt.Errorf("positive increment not received: %f", increment)
 	}
-	node.nodeLock.Lock()
-	defer node.nodeLock.Unlock()
-	node.Weight += increment
+	GrootGraphNode.nodeLock.Lock()
+	defer GrootGraphNode.nodeLock.Unlock()
+	GrootGraphNode.KmerFreq += increment
 	return nil
 }
 
 // AddCoverage is a method to mark a region within a node as covered, given the start position and the number of bases to cover
-func (node *GrootGraphNode) AddCoverage(start, numberOfBases int) {
+func (GrootGraphNode *GrootGraphNode) AddCoverage(start, numberOfBases int) {
 	// if numberOfBases is greater than the sequence length, just mark to the end of the node sequence
-	if numberOfBases >= len(node.Sequence) {
-		numberOfBases = len(node.Sequence)
+	if numberOfBases >= len(GrootGraphNode.Sequence) {
+		numberOfBases = len(GrootGraphNode.Sequence)
 	}
-	node.nodeLock.Lock()
-	defer node.nodeLock.Unlock()
+	GrootGraphNode.nodeLock.Lock()
+	defer GrootGraphNode.nodeLock.Unlock()
 	for i := start; i < numberOfBases; i++ {
-		node.Coverage.Add(i)
+		GrootGraphNode.Coverage.Add(i)
 	}
 }

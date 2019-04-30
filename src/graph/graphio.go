@@ -2,8 +2,8 @@
 package graph
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -37,7 +37,7 @@ func (graphStore *GraphStore) Load(path string) error {
 }
 
 // SaveGraphAsGFA is a method to convert and save a GrootGraph in GFA format
-func (graph *GrootGraph) SaveGraphAsGFA(dirName string) (int, error) {
+func (graph *GrootGraph) SaveGraphAsGFA(fileName string) (int, error) {
 	// a flag to prevent dumping graphs which had no reads map
 	graphUsed := false
 	t := time.Now()
@@ -55,7 +55,7 @@ func (graph *GrootGraph) SaveGraphAsGFA(dirName string) (int, error) {
 			continue
 		}
 		// record if this graph has had reads map
-		if (graphUsed == false) && (node.Weight > 0) {
+		if (graphUsed == false) && (node.KmerFreq > 0) {
 			graphUsed = true
 		}
 		segID := strconv.FormatUint(node.SegmentID, 10)
@@ -65,7 +65,7 @@ func (graph *GrootGraph) SaveGraphAsGFA(dirName string) (int, error) {
 			return 0, err
 		}
 		// the k-mer count corresponds to the node weight, which is its share of the k-mers from the projected sketches
-		kmerCount := fmt.Sprintf("KC:i:%d", int((node.Weight)))
+		kmerCount := fmt.Sprintf("KC:i:%d", int((node.KmerFreq)))
 		ofs, err := gfa.NewOptionalFields([]byte(kmerCount))
 		if err != nil {
 			return 0, err
@@ -112,20 +112,6 @@ func (graph *GrootGraph) SaveGraphAsGFA(dirName string) (int, error) {
 		path.Add(newGFA)
 	}
 	// create a gfaWriter and write the GFA instance
-	var fileName string
-	for _, path := range graph.Paths {
-		if path != nil {
-			if bytes.Contains(path, []byte("/")) {
-				path = bytes.Replace(path, []byte("/"), []byte(""), -1)
-			}
-			if bytes.Contains(path, []byte(":")) {
-				path = bytes.Replace(path, []byte(":"), []byte(""), -1)
-			}
-			fileName = fmt.Sprintf("%v/%v-groot-graph.gfa", dirName, string(path))
-			break
-		}
-	}
-
 	outfile, err := os.Create(fileName)
 	if err != nil {
 		return 0, err
@@ -137,4 +123,30 @@ func (graph *GrootGraph) SaveGraphAsGFA(dirName string) (int, error) {
 	}
 	err = newGFA.WriteGFAContent(writer)
 	return 1, nil
+}
+
+// LoadGFA reads a GFA file into a GFA struct
+func LoadGFA(fileName string) (*gfa.GFA, error) {
+	// load the GFA file
+	fh, err := os.Open(fileName)
+	reader, err := gfa.NewReader(fh)
+	if err != nil {
+		return nil, fmt.Errorf("can't read gfa file: %v", err)
+	}
+	// collect the GFA instance
+	myGFA := reader.CollectGFA()
+	// read the file
+	for {
+		line, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error reading line in gfa file: %v", err)
+		}
+		if err := line.Add(myGFA); err != nil {
+			return nil, fmt.Errorf("error adding line to GFA instance: %v", err)
+		}
+	}
+	return myGFA, nil
 }

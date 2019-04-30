@@ -232,22 +232,29 @@ func (proc *DbQuerier) Run() {
 		wg.Add(1)
 		go func(read seqio.FASTQread) {
 			defer wg.Done()
-			// query the read
 			mapped := false
-			// get signature for read
-			readSketch, err := read.RunMinHash(proc.CommandInfo.Ksize, proc.CommandInfo.SigSize)
-			misc.ErrorCheck(err)
-			// query the LSH forest
-			for _, result := range proc.Db.Query(readSketch) {
-				mapped = true
-				// convert the stringified db match for this mapping to the constituent parts (graph, node, offset)
-				alignment, err := proc.Db.GetKey(result)
+			// try aligning the read and then its reverse complement
+			for i := 0; i < 2; i++ {
+				if i == 1 {
+					read.RevComplement()
+				}
+				// get signature for read
+				readSketch, err := read.RunMinHash(proc.CommandInfo.Ksize, proc.CommandInfo.SigSize)
 				misc.ErrorCheck(err)
-				// attach the mapping info to the read
-				read.Alignments = append(read.Alignments, alignment)
-				// project the sketch of this read onto the graph and increment the k-mer count for each segment in the projection's subpaths
-				// this also updates the segment coverage information, using a bit vector to indicate when a base is covered
-				misc.ErrorCheck(proc.GraphStore[alignment.GraphID].IncrementSubPath(alignment.SubPath, alignment.OffSet, len(read.Seq), proc.CommandInfo.Ksize))
+				// query the LSH forest
+				for _, result := range proc.Db.Query(readSketch) {
+					mapped = true
+					// convert the stringified db match for this mapping to the constituent parts (graph, node, offset)
+					alignment, err := proc.Db.GetKey(result)
+					misc.ErrorCheck(err)
+					// was the read reverse complemented to get it to map?
+					alignment.RC = read.RC
+					// attach the mapping info to the read
+					read.Alignments = append(read.Alignments, alignment)
+					// project the sketch of this read onto the graph and increment the k-mer count for each segment in the projection's subpaths
+					// this also updates the segment coverage information, using a bit vector to indicate when a base is covered
+					misc.ErrorCheck(proc.GraphStore[alignment.GraphID].IncrementSubPath(alignment.SubPath, alignment.OffSet, len(read.Seq), proc.CommandInfo.Ksize))
+				}
 			}
 			// BABY GROOT - re-evaluate channel usage
 			if mapped == true {
