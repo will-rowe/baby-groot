@@ -90,18 +90,16 @@ func haplotypeParamCheck() error {
 	if _, err := os.Stat(*indexDirectory); err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("index directory does not exist: %v", *indexDirectory)
-		} else {
-			return fmt.Errorf("can't access an index directory (check permissions): %v", indexDirectory)
 		}
+		return fmt.Errorf("can't access an index directory (check permissions): %v", indexDirectory)
 	}
-	indexFiles := [3]string{"/index.graph", "/index.info", "/index.sigs"}
+	indexFiles := [3]string{"/index.graph", "/index.info", "/index.sketches"}
 	for _, indexFile := range indexFiles {
 		if _, err := os.Stat(*indexDirectory + indexFile); err != nil {
 			if os.IsNotExist(err) {
 				return fmt.Errorf("index file does not exist: %v", indexFile)
-			} else {
-				return fmt.Errorf("can't access an index file (check permissions): %v", indexFile)
 			}
+			return fmt.Errorf("can't access an index file (check permissions): %v", indexFile)
 		}
 	}
 	info := new(misc.IndexInfo)
@@ -116,9 +114,8 @@ func haplotypeParamCheck() error {
 	if _, err := os.Stat(*graphDirectory); err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("graph directory does not exist: %v", *indexDirectory)
-		} else {
-			return fmt.Errorf("can't access the graph directory (check permissions): %v", indexDirectory)
 		}
+		return fmt.Errorf("can't access the graph directory (check permissions): %v", indexDirectory)
 	}
 	graphs, err := filepath.Glob(*graphDirectory + "/groot-graph-*.gfa")
 	if err != nil {
@@ -128,9 +125,8 @@ func haplotypeParamCheck() error {
 		if _, err := os.Stat(graph); err != nil {
 			if os.IsNotExist(err) {
 				return fmt.Errorf("graph file does not exist: %v", graph)
-			} else {
-				return fmt.Errorf("can't access graph file (check permissions): %v", graph)
 			}
+			return fmt.Errorf("can't access graph file (check permissions): %v", graph)
 		}
 		graphList = append(graphList, graph)
 	}
@@ -166,20 +162,32 @@ func runHaplotype() {
 		defer profile.Start(profile.ProfilePath("./")).Stop()
 	}
 	// start logging
-	logFH := misc.StartLogging(*logFile)
-	defer logFH.Close()
-	log.SetOutput(logFH)
+	if *logFile != "" {
+		logFH := misc.StartLogging(*logFile)
+		defer logFH.Close()
+		log.SetOutput(logFH)
+	} else {
+		log.SetOutput(os.Stdout)
+	}
+	// start sub command
 	log.Printf("i am groot (version %s)", version.VERSION)
 	log.Printf("starting the haplotype subcommand")
 	// check the supplied files and then log some stuff
 	log.Printf("checking parameters...")
 	misc.ErrorCheck(haplotypeParamCheck())
+	log.Printf("\tgraph bootstraps: %d", *bootstraps)
+	if *scaling == 0.0 {
+		log.Printf("\tscaling factor for node re-weighting: deactivated")
+	} else {
+		log.Printf("\tscaling factor for node re-weighting: %0.4f", *scaling)
+	}
+	log.Printf("\tprobability threshold for reporting markov paths: %0.2f", *probability)
 	log.Printf("\tprocessors: %d", *proc)
 	log.Print("loading index information...")
 	info := new(misc.IndexInfo)
 	misc.ErrorCheck(info.Load(*indexDirectory + "/index.info"))
 	log.Printf("\tk-mer size: %d\n", info.Ksize)
-	log.Printf("\tsignature size: %d\n", info.SigSize)
+	log.Printf("\tsketch size: %d\n", info.SigSize)
 	log.Printf("\tJaccard similarity theshold: %0.2f\n", info.JSthresh)
 	log.Printf("\twindow size used in indexing: %d\n", info.WindowSize)
 	log.Print("loading the graphs...")
@@ -238,27 +246,30 @@ func runHaplotype() {
 	}()
 
 	// process each graph in a go routine
-	for _, graph := range graphStore {
+	for _, receivedGraph := range graphStore {
 		wg2.Add(1)
-		go func() {
+		go func(g *graph.GrootGraph) {
 			defer wg2.Done()
-			err := graph.FindMarkovPaths(chain, *bootstraps, *scaling)
+			err := g.FindMarkovPaths(chain, *bootstraps, *scaling)
 			misc.ErrorCheck(err)
 
-			err = graph.ProcessMarkovPaths(*probability)
+			err = g.ProcessMarkovPaths(*probability)
 			misc.ErrorCheck(err)
 
-			paths, err := graph.GetMarkovPaths()
+			paths, err := g.GetMarkovPaths()
 			misc.ErrorCheck(err)
-			log.Printf("\t- graph %d has %d markov paths passing thresholds", graph.GraphID, len(paths))
+			log.Printf("\tgraph %d has %d markov paths passing thresholds", g.GraphID, len(paths))
+			for _, path := range paths {
+				log.Printf("\t- [%v]", path)
+			}
 
 			// replace the old paths with the new MCMC derived paths
-			err = graph.PathReplace()
+			err = g.PathReplace()
 			misc.ErrorCheck(err)
 
 			// send the graph
-			graphChan2 <- graph
-		}()
+			graphChan2 <- g
+		}(receivedGraph)
 
 	}
 

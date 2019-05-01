@@ -29,10 +29,9 @@ import (
 
 // the command line arguments
 var (
-	proc           *int    // number of processors to use
-	logFile        *string // name to use for log file
-	profiling      *bool   // create profile for go pprof
-	defaultLogFile = "./groot.log"
+	proc      *int    // number of processors to use
+	logFile   *string // name to use for log file
+	profiling *bool   // create profile for go pprof
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -72,6 +71,6 @@ func Execute() {
 */
 func init() {
 	proc = RootCmd.PersistentFlags().IntP("processors", "p", 1, "number of processors to use")
-	logFile = RootCmd.PersistentFlags().StringP("logFile", "y", defaultLogFile, "filename for log file")
+	logFile = RootCmd.PersistentFlags().String("log", "", "filename for log file, STDOUT used by default")
 	profiling = RootCmd.PersistentFlags().Bool("profiling", false, "create the files needed to profile GROOT using the go tool pprof")
 }

@@ -15,43 +15,44 @@ import (
 
 	"github.com/will-rowe/baby-groot/src/graph"
 	"github.com/will-rowe/baby-groot/src/lshForest"
+	"github.com/will-rowe/baby-groot/src/minhash"
 	"github.com/will-rowe/baby-groot/src/misc"
 	"github.com/will-rowe/baby-groot/src/seqio"
 )
 
-const (
-	BUFFERSIZE = 128 // buffer size to use for channels
-)
+// buffersize is the size of the buffer used by the channels
+const buffersize = 128
 
-/*
-  The process interface
-*/
+// process is the interface used by pipeline
 type process interface {
 	Run()
 }
 
-/*
-  The basic pipeline - takes a list of Processes and runs them in Go routines, the last process is ran in the fg
-*/
+// Pipeline is the base type, which takes any types that satisfy the process interface
 type Pipeline struct {
 	Processes []process
 }
 
+// NewPipeline is the pipeline constructor
 func NewPipeline() *Pipeline {
 	return &Pipeline{}
 }
 
+// AddProcess is a method to add a single process to the pipeline
 func (pl *Pipeline) AddProcess(proc process) {
 	pl.Processes = append(pl.Processes, proc)
 }
 
+// AddProcesses is a method to add multiple processes to the pipeline
 func (pl *Pipeline) AddProcesses(procs ...process) {
 	for _, proc := range procs {
 		pl.AddProcess(proc)
 	}
 }
 
+// Run is a method that starts the pipeline
 func (pl *Pipeline) Run() {
+	// each pipeline process is run in a Go routines, except the last process which is run in the foreground
 	for i, proc := range pl.Processes {
 		if i < len(pl.Processes)-1 {
 			go proc.Run()
@@ -61,19 +62,19 @@ func (pl *Pipeline) Run() {
 	}
 }
 
-/*
-  A process to stream data from STDIN/file
-*/
+// DataStreamer is a pipeline process that streams data from STDIN/file
 type DataStreamer struct {
 	process
 	Output    chan []byte
 	InputFile []string
 }
 
+// NewDataStreamer is the constructor
 func NewDataStreamer() *DataStreamer {
-	return &DataStreamer{Output: make(chan []byte, BUFFERSIZE)}
+	return &DataStreamer{Output: make(chan []byte, buffersize)}
 }
 
+// Run is the method to run this process, which satisfies the pipeline interface
 func (proc *DataStreamer) Run() {
 	var scanner *bufio.Scanner
 	// if an input file path has not been provided, scan the contents of STDIN
@@ -122,9 +123,10 @@ type FastqHandler struct {
 }
 
 func NewFastqHandler() *FastqHandler {
-	return &FastqHandler{Output: make(chan seqio.FASTQread, BUFFERSIZE)}
+	return &FastqHandler{Output: make(chan seqio.FASTQread, buffersize)}
 }
 
+// Run is the method to run this process, which satisfies the pipeline interface
 func (proc *FastqHandler) Run() {
 	defer close(proc.Output)
 	var l1, l2, l3, l4 []byte
@@ -162,9 +164,10 @@ type FastqChecker struct {
 }
 
 func NewFastqChecker() *FastqChecker {
-	return &FastqChecker{Output: make(chan seqio.FASTQread, BUFFERSIZE)}
+	return &FastqChecker{Output: make(chan seqio.FASTQread, buffersize)}
 }
 
+// Run is the method to run this process, which satisfies the pipeline interface
 func (proc *FastqChecker) Run() {
 	defer close(proc.Output)
 	log.Printf("now streaming reads...")
@@ -173,8 +176,9 @@ func (proc *FastqChecker) Run() {
 	rawCount, lengthTotal := 0, 0
 	for read := range proc.Input {
 		rawCount++
-		//  tally the length so we can report the mean
+		// tally the length so we can report the mean
 		lengthTotal += len(read.Seq)
+		// send the read onwards for mapping
 		proc.Output <- read
 	}
 	wg.Wait()
@@ -187,7 +191,7 @@ func (proc *FastqChecker) Run() {
 	log.Printf("\tmean read length: %.0f\n", meanRL)
 	// check the length is within +/-10 bases of the graph window
 	if meanRL < float64(proc.WindowSize-10) || meanRL > float64(proc.WindowSize+10) {
-		misc.ErrorCheck(fmt.Errorf("mean read length is outside the graph window size (+/- 10 bases)\n"))
+		misc.ErrorCheck(fmt.Errorf("mean read length is outside the graph window size (+/- 10 bases)"))
 	}
 }
 
@@ -200,13 +204,20 @@ type DbQuerier struct {
 	Db          lshForest.GROOTindex
 	CommandInfo *misc.IndexInfo
 	GraphStore  graph.GraphStore
+	BloomFilter bool
 }
 
 func NewDbQuerier() *DbQuerier {
 	return &DbQuerier{}
 }
 
+// Run is the method to run this process, which satisfies the pipeline interface
 func (proc *DbQuerier) Run() {
+	// if requested, set up a bloom filter to prevent unique k-mers being included in sketches
+	var bf *minhash.BloomFilter
+	if proc.BloomFilter {
+		bf = minhash.NewDefaultBloomFilter()
+	}
 	// record the number of reads processed by the DbQuerier
 	readTally, mappedTally, multiMappedTally := 0, 0, 0
 	var wg sync.WaitGroup
@@ -217,7 +228,7 @@ func (proc *DbQuerier) Run() {
 			defer wg.Done()
 			mapped := false
 			// get sketch for read
-			readSketch, err := read.RunMinHash(proc.CommandInfo.Ksize, proc.CommandInfo.SigSize)
+			readSketch, err := read.RunMinHash(proc.CommandInfo.Ksize, proc.CommandInfo.SigSize, proc.CommandInfo.KMVsketch, bf)
 			misc.ErrorCheck(err)
 			// query the LSH forest
 			for _, result := range proc.Db.Query(readSketch) {

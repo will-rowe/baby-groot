@@ -45,7 +45,7 @@ var md5sums = map[string]string{
 }
 
 // url to download databases from
-var dbUrl = "https://github.com/will-rowe/baby-groot/raw/master/db/clustered-ARG-databases/"
+var dbURL = "https://github.com/will-rowe/groot/raw/master/db/clustered-ARG-databases/"
 
 // the command line arguments
 var (
@@ -71,9 +71,7 @@ func init() {
 	dbDir = getCmd.PersistentFlags().StringP("out", "o", ".", "directory to save the database to")
 }
 
-/*
-  A function to check user supplied parameters
-*/
+// getParamCheck is a function to check user supplied parameters
 func getParamCheck() error {
 	// check requested db exists in groot records
 	checkPass := false
@@ -103,9 +101,7 @@ func getParamCheck() error {
 	return nil
 }
 
-/*
-  A function to download the database tarball
-*/
+// DownloadFile is a function to download the database tarball
 func DownloadFile(savePath string, url string) error {
 	outFile, err := os.Create(savePath)
 	if err != nil {
@@ -124,9 +120,7 @@ func DownloadFile(savePath string, url string) error {
 	return nil
 }
 
-/*
-  A function to calculate md5
-*/
+// getMD5 is a function to calculate the md5
 func getMD5(savePath string) error {
 	var dbMD5 string
 	file, err := os.Open(savePath)
@@ -159,9 +153,9 @@ func runGet() {
 	// download the db
 	fmt.Printf("downloading the pre-clustered %v database...\n", *database)
 	dbName := fmt.Sprintf("%v.%v", *database, *identity)
-	dbUrl += dbName
-	dbUrl += ".tar"
-	if err := DownloadFile("tmp.tar", dbUrl); err != nil {
+	dbURL += dbName
+	dbURL += ".tar"
+	if err := DownloadFile("tmp.tar", dbURL); err != nil {
 		fmt.Println("could not download the tarball")
 		fmt.Println(err)
 		os.Exit(1)

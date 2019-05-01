@@ -211,7 +211,7 @@ func (GrootGraph *GrootGraph) traverse(node *GrootGraphNode, nodeMap map[uint64]
 }
 
 // WindowGraph is a method to slide a window over each path through the graph, sketching the paths and getting window information
-func (GrootGraph *GrootGraph) WindowGraph(windowSize, kSize, sketchSize int) chan *seqio.Key {
+func (GrootGraph *GrootGraph) WindowGraph(windowSize, kmerSize, sketchSize int, kmvSketch bool) chan *seqio.Key {
 	// get the linear sequences for this graph
 	pathSeqs, err := GrootGraph.Graph2Seqs()
 	if err != nil {
@@ -254,7 +254,7 @@ func (GrootGraph *GrootGraph) WindowGraph(windowSize, kSize, sketchSize int) cha
 			for i := 0; i < numWindows; i++ {
 				// sketch the window
 				windowSeq := seqio.Sequence{Seq: sequence[i : i+windowSize]}
-				sketch, err := windowSeq.RunMinHash(kSize, sketchSize)
+				sketch, err := windowSeq.RunMinHash(kmerSize, sketchSize, kmvSketch, nil)
 				if err != nil {
 					panic(err)
 				}

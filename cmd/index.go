@@ -43,8 +43,9 @@ import (
 
 // the command line arguments
 var (
-	kSize         *int                                                             // size of k-mer
-	sigSize       *int                                                             // size of MinHash signature
+	kmerSize      *int                                                             // size of k-mer
+	sketchSize    *int                                                             // size of MinHash sketch
+	kmvSketch     *bool                                                            // if true, MinHash uses KMV algorithm, if false, MinHash uses Bottom-K algorithm
 	windowSize    *int                                                             // length of query reads (used during alignment subcommand), needed as window length should ~= read length
 	jsThresh      *float64                                                         // minimum Jaccard similarity for LSH forest query
 	msaDir        *string                                                          // directory containing the input MSA files
@@ -68,8 +69,9 @@ var indexCmd = &cobra.Command{
 
 // a function to initialise the command line arguments
 func init() {
-	kSize = indexCmd.Flags().IntP("kmerSize", "k", 7, "size of k-mer")
-	sigSize = indexCmd.Flags().IntP("sigSize", "s", 128, "size of MinHash signature")
+	kmerSize = indexCmd.Flags().IntP("kmerSize", "k", 7, "size of k-mer")
+	sketchSize = indexCmd.Flags().IntP("sketchSize", "s", 42, "size of MinHash sketch")
+	kmvSketch = indexCmd.Flags().Bool("kmvSketch", false, "if set, MinHash uses KMV algorithm, otherwise MinHash uses Bottom-K algorithm")
 	windowSize = indexCmd.Flags().IntP("windowSize", "w", 100, "size of window to sketch graph traversals with")
 	jsThresh = indexCmd.Flags().Float64P("jsThresh", "j", 0.99, "minimum Jaccard similarity for a seed to be recorded")
 	msaDir = indexCmd.Flags().StringP("msaDir", "i", "", "directory containing the clustered references (MSA files) - required")
@@ -102,7 +104,7 @@ func indexParamCheck() error {
 		return fmt.Errorf("no MSA files (.msa) found in the supplied directory")
 	}
 	// TODO: check the supplied arguments to make sure they don't conflict with each other eg:
-	if *kSize > *windowSize {
+	if *kmerSize > *windowSize {
 		return fmt.Errorf("supplied k-mer size greater than read length")
 	}
 	// setup the outDir
@@ -128,18 +130,28 @@ func runIndex() {
 		defer profile.Start(profile.ProfilePath("./")).Stop()
 	}
 	// start logging
-	logFH := misc.StartLogging(*logFile)
-	defer logFH.Close()
-	log.SetOutput(logFH)
+	if *logFile != "" {
+		logFH := misc.StartLogging(*logFile)
+		defer logFH.Close()
+		log.SetOutput(logFH)
+	} else {
+		log.SetOutput(os.Stdout)
+	}
+	// start sub command
 	log.Printf("i am groot (version %s)", version.VERSION)
 	log.Printf("starting the index subcommand")
 	// check the supplied files and then log some stuff
 	log.Printf("checking parameters...")
 	misc.ErrorCheck(indexParamCheck())
 	log.Printf("\tprocessors: %d", *proc)
-	log.Printf("\tk-mer size: %d", *kSize)
-	log.Printf("\tsignature size: %d", *sigSize)
-	log.Printf("\tread length (window size): %d", *windowSize)
+	log.Printf("\tk-mer size: %d", *kmerSize)
+	log.Printf("\tsketch size: %d", *sketchSize)
+	if *kmvSketch {
+		log.Printf("\tMinHash algorithm: K-Minimum Values")
+	} else {
+		log.Printf("\tMinHash algorithm: Bottom-K")
+	}
+	log.Printf("\tgraph window size: %d", *windowSize)
 	log.Printf("\tnumber of MSA files found: %d", len(msaList))
 	///////////////////////////////////////////////////////////////////////////////////////
 	log.Printf("building groot graphs...")
@@ -188,7 +200,7 @@ func runIndex() {
 			defer wg.Done()
 			keyChecker := make(map[string]string)
 			// create sketch for each window in the graph
-			for window := range grootGraph.WindowGraph(*windowSize, *kSize, *sigSize) {
+			for window := range grootGraph.WindowGraph(*windowSize, *kmerSize, *sketchSize, *kmvSketch) {
 
 				// there may be multiple copies of the same window key
 				// - one graph+node+offset can have several subpaths to window
@@ -221,7 +233,7 @@ func runIndex() {
 	}()
 	///////////////////////////////////////////////////////////////////////////////////////
 	log.Printf("running LSH forest...\n")
-	database := lshForest.NewLSHforest(*sigSize, *jsThresh)
+	database := lshForest.NewLSHforest(*sketchSize, *jsThresh)
 	var sketchCount int = 0
 	for window := range windowChan {
 		sketchCount++
@@ -234,14 +246,14 @@ func runIndex() {
 	log.Printf("\tnumber of sketches added: %d\n", sketchCount)
 	///////////////////////////////////////////////////////////////////////////////////////
 	// record runtime info
-	info := &misc.IndexInfo{Version: version.VERSION, Ksize: *kSize, SigSize: *sigSize, JSthresh: *jsThresh, WindowSize: *windowSize}
+	info := &misc.IndexInfo{Version: version.VERSION, Ksize: *kmerSize, SigSize: *sketchSize, KMVsketch: *kmvSketch, JSthresh: *jsThresh, WindowSize: *windowSize}
 	// save the index files
 	log.Printf("saving index files to \"%v\"...", *outDir)
 	misc.ErrorCheck(info.Dump(*outDir + "/index.info"))
 	log.Printf("\tsaved runtime info")
 	misc.ErrorCheck(graphStore.Dump(*outDir + "/index.graph"))
 	log.Printf("\tsaved groot graphs")
-	misc.ErrorCheck(database.Dump(*outDir + "/index.sigs"))
-	log.Printf("\tsaved MinHash signatures")
+	misc.ErrorCheck(database.Dump(*outDir + "/index.sketches"))
+	log.Printf("\tsaved MinHash sketches")
 	log.Println("finished")
 }

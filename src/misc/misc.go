@@ -99,6 +99,7 @@ type IndexInfo struct {
 	Version    string
 	Ksize      int
 	SigSize    int
+	KMVsketch  bool
 	JSthresh   float64
 	WindowSize int
 }

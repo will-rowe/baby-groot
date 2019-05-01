@@ -43,6 +43,7 @@ import (
 var (
 	indexDir        *string                                                           // directory containing the index files
 	fastq           *[]string                                                         // list of FASTQ files to align
+	bloomFilter     *bool                                                             // flag to use a bloom filter in order to prevent unique k-mers being used during sketching
 	minKmerCoverage *int                                                              // the minimum k-mer coverage per base of a segment
 	minBaseCoverage *float64                                                          // percentage of the segment bases that had reads align
 	graphDir        *string                                                           // directory to save gfa graphs to
@@ -68,6 +69,7 @@ var alignCmd = &cobra.Command{
 func init() {
 	indexDir = alignCmd.Flags().StringP("indexDir", "i", "", "directory containing the index files - required")
 	fastq = alignCmd.Flags().StringSliceP("fastq", "f", []string{}, "FASTQ file(s) to align")
+	bloomFilter = alignCmd.Flags().Bool("bloomFilter", false, "if set, a bloom filter will be used to stop unique k-mers being added to sketches")
 	minKmerCoverage = alignCmd.Flags().IntP("minKmerCov", "k", 1, "minimum k-mer coverage per base of a segment")
 	minBaseCoverage = alignCmd.Flags().Float64P("minBaseCov", "c", 0.1, "percentage of the graph segment bases that must have reads align")
 	graphDir = alignCmd.PersistentFlags().StringP("graphDir", "o", defaultGraphDir, "directory to save variation graphs to")
@@ -122,7 +124,7 @@ func alignParamCheck() error {
 			return fmt.Errorf("can't access an index directory (check permissions): %v", indexDir)
 		}
 	}
-	indexFiles := [3]string{"/index.graph", "/index.info", "/index.sigs"}
+	indexFiles := [3]string{"/index.graph", "/index.info", "/index.sketches"}
 	for _, indexFile := range indexFiles {
 		if _, err := os.Stat(*indexDir + indexFile); err != nil {
 			if os.IsNotExist(err) {
@@ -165,14 +167,24 @@ func runAlign() {
 		defer profile.Start(profile.ProfilePath("./")).Stop()
 	}
 	// start logging
-	logFH := misc.StartLogging(*logFile)
-	defer logFH.Close()
-	log.SetOutput(logFH)
+	if *logFile != "" {
+		logFH := misc.StartLogging(*logFile)
+		defer logFH.Close()
+		log.SetOutput(logFH)
+	} else {
+		log.SetOutput(os.Stdout)
+	}
+	// start sub command
 	log.Printf("i am groot (version %s)", version.VERSION)
 	log.Printf("starting the align subcommand")
 	// check the supplied files and then log some stuff
 	log.Printf("checking parameters...")
 	misc.ErrorCheck(alignParamCheck())
+	if *bloomFilter {
+		log.Printf("\tignoring unique k-mers: true")
+	} else {
+		log.Printf("\tignoring unique k-mers: false")
+	}
 	log.Printf("\tminimum k-mer frequency: %d", *minKmerCoverage)
 	log.Printf("\tminimum base coverage: %0.0f%%", *minBaseCoverage*100)
 	log.Printf("\tprocessors: %d", *proc)
@@ -183,7 +195,7 @@ func runAlign() {
 	info := new(misc.IndexInfo)
 	misc.ErrorCheck(info.Load(*indexDir + "/index.info"))
 	log.Printf("\tk-mer size: %d\n", info.Ksize)
-	log.Printf("\tsignature size: %d\n", info.SigSize)
+	log.Printf("\tsketch size: %d\n", info.SigSize)
 	log.Printf("\tJaccard similarity theshold: %0.2f\n", info.JSthresh)
 	log.Printf("\twindow size used in indexing: %d\n", info.WindowSize)
 	log.Print("loading the groot graphs...")
@@ -192,7 +204,7 @@ func runAlign() {
 	log.Printf("\tnumber of variation graphs: %d\n", len(graphStore))
 	log.Print("loading the MinHash sketches...")
 	database := lshForest.NewLSHforest(info.SigSize, info.JSthresh)
-	misc.ErrorCheck(database.Load(*indexDir + "/index.sigs"))
+	misc.ErrorCheck(database.Load(*indexDir + "/index.sketches"))
 	database.Index()
 	numHF, numBucks := database.Settings()
 	log.Printf("\tnumber of hash functions per bucket: %d\n", numHF)
@@ -216,6 +228,7 @@ func runAlign() {
 	dbQuerier.Db = database
 	dbQuerier.CommandInfo = info
 	dbQuerier.GraphStore = graphStore
+	dbQuerier.BloomFilter = *bloomFilter
 
 	// arrange pipeline processes
 	log.Printf("\tconnecting data streams")
@@ -232,12 +245,8 @@ func runAlign() {
 	log.Printf("pruning graphs...")
 	graphChan := make(chan *graph.GrootGraph)
 	var wg sync.WaitGroup
-	go func() {
-		wg.Wait()
-		close(graphChan)
-	}()
+	wg.Add(len(graphStore))
 	for _, g := range graphStore {
-		wg.Add(1)
 		go func(graph *graph.GrootGraph) {
 			defer wg.Done()
 			// check for alignments and prune the graph
@@ -249,6 +258,10 @@ func runAlign() {
 			}
 		}(g)
 	}
+	go func() {
+		wg.Wait()
+		close(graphChan)
+	}()
 
 	// save the graph files
 	log.Printf("saving graphs to \"./%v/\"...", *graphDir)
@@ -266,8 +279,11 @@ func runAlign() {
 			log.Printf("\t- [%v]", string(path))
 		}
 	}
-
-	log.Printf("\ttotal number of graphs written to disk: %d\n", graphCounter)
-	log.Printf("\ttotal number of possible alleles found: %d\n", pathCounter)
+	if graphCounter == 0 {
+		log.Print("\tno graphs remaining after pruning")
+	} else {
+		log.Printf("\ttotal number of graphs written to disk: %d\n", graphCounter)
+		log.Printf("\ttotal number of possible alleles found: %d\n", pathCounter)
+	}
 	log.Println("finished")
 }
