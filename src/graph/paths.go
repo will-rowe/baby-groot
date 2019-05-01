@@ -226,9 +226,11 @@ func (GrootGraph *GrootGraph) FindMarkovPaths(chain *markov.Chain, bootstraps in
 				}
 
 				// re-weight the transition to the selected node
-				err := chain.Scale(string(node.Sequence), pathMemory, scaling)
-				if err != nil {
-					errChannel <- err
+				if scaling != 0.0 {
+					err := chain.Scale(string(node.Sequence), pathMemory, scaling)
+					if err != nil {
+						errChannel <- err
+					}
 				}
 
 				// add the ID of the selected node to the tracker before going on to check its edges

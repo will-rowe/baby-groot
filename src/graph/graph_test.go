@@ -3,7 +3,6 @@ package graph
 import (
 	"log"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/will-rowe/baby-groot/src/markov"
@@ -106,11 +105,11 @@ func TestFindMarkovPaths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = grootGraph.FindMarkovPaths(chain)
+	err = grootGraph.FindMarkovPaths(chain, 10, 0.02)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = grootGraph.ProcessMarkovPaths()
+	err = grootGraph.ProcessMarkovPaths(0.9)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,21 +151,14 @@ func TestGraphDump(t *testing.T) {
 	}
 	// add a dummy read so that the graph will write
 	grootGraph.SortedNodes[0].IncrementKmerFreq(100.0)
-	written, err := grootGraph.SaveGraphAsGFA(".")
+	written, err := grootGraph.SaveGraphAsGFA("./tmp-graph.gfa")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if written != 1 {
 		t.Fatal("graph not written as gfa file")
 	}
-	files, err := filepath.Glob("*-groot-graph.gfa")
-	if err != nil {
-		panic(err)
+	if err := os.Remove("./tmp-graph.gfa"); err != nil {
+		t.Fatal(err)
 	}
-	for _, file := range files {
-		if err := os.Remove(file); err != nil {
-			t.Fatal(err)
-		}
-	}
-
 }
