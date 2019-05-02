@@ -35,6 +35,7 @@ import (
 	"github.com/will-rowe/baby-groot/src/graph"
 	"github.com/will-rowe/baby-groot/src/markov"
 	"github.com/will-rowe/baby-groot/src/misc"
+	"github.com/will-rowe/baby-groot/src/stream"
 	"github.com/will-rowe/baby-groot/src/version"
 	"github.com/will-rowe/gfa"
 )
@@ -102,7 +103,7 @@ func haplotypeParamCheck() error {
 			return fmt.Errorf("can't access an index file (check permissions): %v", indexFile)
 		}
 	}
-	info := new(misc.IndexInfo)
+	info := new(stream.PipelineInfo)
 	misc.ErrorCheck(info.Load(*indexDirectory + "/index.info"))
 	if info.Version != version.VERSION {
 		return fmt.Errorf("the groot index was created with a different version of groot (you are currently using version %v)", version.VERSION)
@@ -184,7 +185,7 @@ func runHaplotype() {
 	log.Printf("\tprobability threshold for reporting markov paths: %0.2f", *probability)
 	log.Printf("\tprocessors: %d", *proc)
 	log.Print("loading index information...")
-	info := new(misc.IndexInfo)
+	info := new(stream.PipelineInfo)
 	misc.ErrorCheck(info.Load(*indexDirectory + "/index.info"))
 	log.Printf("\tk-mer size: %d\n", info.Ksize)
 	log.Printf("\tsketch size: %d\n", info.SigSize)

@@ -27,11 +27,11 @@ import (
 	"os"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/pkg/profile"
 	"github.com/spf13/cobra"
+	"github.com/will-rowe/baby-groot/src/align"
 	"github.com/will-rowe/baby-groot/src/graph"
 	"github.com/will-rowe/baby-groot/src/lshForest"
 	"github.com/will-rowe/baby-groot/src/misc"
@@ -50,7 +50,7 @@ var (
 	defaultGraphDir = "./groot-graphs-" + string(time.Now().Format("20060102150405")) // a default graphDir
 )
 
-// the align command (used by cobra)
+// alignCmd is used by cobra
 var alignCmd = &cobra.Command{
 	Use:   "align",
 	Short: "Align a set of FASTQ reads to indexed variation graphs",
@@ -63,9 +63,7 @@ var alignCmd = &cobra.Command{
 	},
 }
 
-/*
-  A function to initialise the command line arguments
-*/
+// init the command line arguments
 func init() {
 	indexDir = alignCmd.Flags().StringP("indexDir", "i", "", "directory containing the index files - required")
 	fastq = alignCmd.Flags().StringSliceP("fastq", "f", []string{}, "FASTQ file(s) to align")
@@ -75,11 +73,10 @@ func init() {
 	graphDir = alignCmd.PersistentFlags().StringP("graphDir", "o", defaultGraphDir, "directory to save variation graphs to")
 	alignCmd.MarkFlagRequired("indexDir")
 	RootCmd.AddCommand(alignCmd)
+
 }
 
-/*
-  A function to check user supplied parameters
-*/
+// alignParamCheck is a function to check user supplied parameters
 func alignParamCheck() error {
 	// check the supplied FASTQ file(s)
 	if len(*fastq) == 0 {
@@ -134,7 +131,7 @@ func alignParamCheck() error {
 			}
 		}
 	}
-	info := new(misc.IndexInfo)
+	info := new(stream.PipelineInfo)
 	misc.ErrorCheck(info.Load(*indexDir + "/index.info"))
 	if info.Version != version.VERSION {
 		return fmt.Errorf("the groot index was created with a different version of groot (you are currently using version %v)", version.VERSION)
@@ -157,9 +154,7 @@ func alignParamCheck() error {
 	return nil
 }
 
-/*
-  The main function for the align sub-command
-*/
+// runAlign is the main function for the align sub-command
 func runAlign() {
 	// set up profiling
 	if *profiling == true {
@@ -192,7 +187,7 @@ func runAlign() {
 		log.Printf("\tinput file: %v", file)
 	}
 	log.Print("loading index information...")
-	info := new(misc.IndexInfo)
+	info := new(stream.PipelineInfo)
 	misc.ErrorCheck(info.Load(*indexDir + "/index.info"))
 	log.Printf("\tk-mer size: %d\n", info.Ksize)
 	log.Printf("\tsketch size: %d\n", info.SigSize)
@@ -205,10 +200,18 @@ func runAlign() {
 	log.Print("loading the MinHash sketches...")
 	database := lshForest.NewLSHforest(info.SigSize, info.JSthresh)
 	misc.ErrorCheck(database.Load(*indexDir + "/index.sketches"))
+	log.Print("sorting the index...")
 	database.Index()
 	numHF, numBucks := database.Settings()
 	log.Printf("\tnumber of hash functions per bucket: %d\n", numHF)
 	log.Printf("\tnumber of buckets: %d\n", numBucks)
+	// add the align information to the stored index information
+	info.BloomFilter = *bloomFilter
+	info.MinKmerCoverage = *minKmerCoverage
+	info.MinBaseCoverage = *minBaseCoverage
+	info.Db = database
+	info.GraphStore = graphStore
+	info.GraphDir = *graphDir
 	///////////////////////////////////////////////////////////////////////////////////////
 
 	// create the pipeline
@@ -217,73 +220,23 @@ func runAlign() {
 
 	// initialise processes
 	log.Printf("\tinitialising the processes")
-	dataStream := stream.NewDataStreamer()
-	fastqHandler := stream.NewFastqHandler()
-	fastqChecker := stream.NewFastqChecker()
-	dbQuerier := stream.NewDbQuerier()
-
-	// add in the process parameters
-	dataStream.InputFile = *fastq
-	fastqChecker.WindowSize = info.WindowSize
-	dbQuerier.Db = database
-	dbQuerier.CommandInfo = info
-	dbQuerier.GraphStore = graphStore
-	dbQuerier.BloomFilter = *bloomFilter
+	dataStream := align.NewDataStreamer(info)
+	fastqHandler := align.NewFastqHandler(info)
+	fastqChecker := align.NewFastqChecker(info)
+	dbQuerier := align.NewDbQuerier(info)
+	graphPruner := align.NewGraphPruner(info)
 
 	// arrange pipeline processes
 	log.Printf("\tconnecting data streams")
+	dataStream.Input = *fastq
 	fastqHandler.Input = dataStream.Output
 	fastqChecker.Input = fastqHandler.Output
 	dbQuerier.Input = fastqChecker.Output
+	graphPruner.Input = dbQuerier.Output
 
-	// submit each process to the pipeline to be run
-	pipeline.AddProcesses(dataStream, fastqHandler, fastqChecker, dbQuerier)
+	// submit each process to the pipeline and run it
+	pipeline.AddProcesses(dataStream, fastqHandler, fastqChecker, dbQuerier, graphPruner)
 	log.Printf("\tnumber of processes added to the alignment pipeline: %d\n", len(pipeline.Processes))
 	pipeline.Run()
-
-	// prune the graphs
-	log.Printf("pruning graphs...")
-	graphChan := make(chan *graph.GrootGraph)
-	var wg sync.WaitGroup
-	wg.Add(len(graphStore))
-	for _, g := range graphStore {
-		go func(graph *graph.GrootGraph) {
-			defer wg.Done()
-			// check for alignments and prune the graph
-			keepGraph := graph.Prune(float64(*minKmerCoverage), *minBaseCoverage)
-
-			// check we have some graph
-			if keepGraph != false {
-				graphChan <- graph
-			}
-		}(g)
-	}
-	go func() {
-		wg.Wait()
-		close(graphChan)
-	}()
-
-	// save the graph files
-	log.Printf("saving graphs to \"./%v/\"...", *graphDir)
-	graphCounter := 0
-	pathCounter := 0
-	for graph := range graphChan {
-		graph.GrootVersion = version.VERSION
-		fileName := fmt.Sprintf("%v/groot-graph-%d.gfa", *graphDir, graph.GraphID)
-		graphWritten, err := graph.SaveGraphAsGFA(fileName)
-		misc.ErrorCheck(err)
-		graphCounter += graphWritten
-		pathCounter += len(graph.Paths)
-		log.Printf("\tgraph %d has %d remaining paths after weighting and pruning", graph.GraphID, len(graph.Paths))
-		for _, path := range graph.Paths {
-			log.Printf("\t- [%v]", string(path))
-		}
-	}
-	if graphCounter == 0 {
-		log.Print("\tno graphs remaining after pruning")
-	} else {
-		log.Printf("\ttotal number of graphs written to disk: %d\n", graphCounter)
-		log.Printf("\ttotal number of possible alleles found: %d\n", pathCounter)
-	}
 	log.Println("finished")
 }

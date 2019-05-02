@@ -37,6 +37,7 @@ import (
 	"github.com/will-rowe/baby-groot/src/lshForest"
 	"github.com/will-rowe/baby-groot/src/misc"
 	"github.com/will-rowe/baby-groot/src/seqio"
+	"github.com/will-rowe/baby-groot/src/stream"
 	"github.com/will-rowe/baby-groot/src/version"
 	"github.com/will-rowe/gfa"
 )
@@ -69,7 +70,7 @@ var indexCmd = &cobra.Command{
 
 // a function to initialise the command line arguments
 func init() {
-	kmerSize = indexCmd.Flags().IntP("kmerSize", "k", 7, "size of k-mer")
+	kmerSize = indexCmd.Flags().IntP("kmerSize", "k", 21, "size of k-mer")
 	sketchSize = indexCmd.Flags().IntP("sketchSize", "s", 42, "size of MinHash sketch")
 	kmvSketch = indexCmd.Flags().Bool("kmvSketch", false, "if set, MinHash uses KMV algorithm, otherwise MinHash uses Bottom-K algorithm")
 	windowSize = indexCmd.Flags().IntP("windowSize", "w", 100, "size of window to sketch graph traversals with")
@@ -246,7 +247,7 @@ func runIndex() {
 	log.Printf("\tnumber of sketches added: %d\n", sketchCount)
 	///////////////////////////////////////////////////////////////////////////////////////
 	// record runtime info
-	info := &misc.IndexInfo{Version: version.VERSION, Ksize: *kmerSize, SigSize: *sketchSize, KMVsketch: *kmvSketch, JSthresh: *jsThresh, WindowSize: *windowSize}
+	info := &stream.PipelineInfo{Version: version.VERSION, Ksize: *kmerSize, SigSize: *sketchSize, KMVsketch: *kmvSketch, JSthresh: *jsThresh, WindowSize: *windowSize}
 	// save the index files
 	log.Printf("saving index files to \"%v\"...", *outDir)
 	misc.ErrorCheck(info.Dump(*outDir + "/index.info"))

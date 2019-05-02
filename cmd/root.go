@@ -54,10 +54,7 @@ var RootCmd = &cobra.Command{
  with aligned reads.`,
 }
 
-/*
-  A function to add all child commands to the root command and sets flags appropriately
-*/
-// This is called by main.main(). It only needs to happen once to the rootCmd.
+// Execute is a function to add all child commands to the root command and sets flags appropriately
 func Execute() {
 	// launch subcommand
 	if err := RootCmd.Execute(); err != nil {
@@ -66,11 +63,10 @@ func Execute() {
 	}
 }
 
-/*
-  A function to initialise the command line arguments
-*/
+// init the command line arguments
 func init() {
 	proc = RootCmd.PersistentFlags().IntP("processors", "p", 1, "number of processors to use")
 	logFile = RootCmd.PersistentFlags().String("log", "", "filename for log file, STDOUT used by default")
 	profiling = RootCmd.PersistentFlags().Bool("profiling", false, "create the files needed to profile GROOT using the go tool pprof")
+
 }

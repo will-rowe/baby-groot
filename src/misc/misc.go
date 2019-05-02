@@ -4,14 +4,12 @@ package misc
 import (
 	"encoding/binary"
 	"errors"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"gopkg.in/vmihailenco/msgpack.v2"
 )
 
 // HASH_SIZE is set to 2/4/8 for 16bit/32bit/64bit hash values
@@ -90,34 +88,4 @@ func Uint64SliceEqual(a []uint64, b []uint64) bool {
 		}
 	}
 	return true
-}
-
-/*
-  A type to save the command information
-*/
-type IndexInfo struct {
-	Version    string
-	Ksize      int
-	SigSize    int
-	KMVsketch  bool
-	JSthresh   float64
-	WindowSize int
-}
-
-// method to dump the info to file
-func (self *IndexInfo) Dump(path string) error {
-	b, err := msgpack.Marshal(self)
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(path, b, 0644)
-}
-
-// method to load info from file
-func (self *IndexInfo) Load(path string) error {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	return msgpack.Unmarshal(b, self)
 }
