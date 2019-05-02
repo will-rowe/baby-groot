@@ -36,6 +36,7 @@ The original [GROOT paper](https://academic.oup.com/bioinformatics/article/34/21
 * output weighted GFA as the primary output
 * swapping serialisation to messagepack (json derivative)
 * general code improvements and bug fixes
+* added support for [Go modules](https://github.com/golang/go/wiki/Modules) and Go 1.12
 
 ## Still to come
 
@@ -45,3 +46,4 @@ The original [GROOT paper](https://academic.oup.com/bioinformatics/article/34/21
 * add in phasing and paired-end information for informing path prediction during haplotype recovery
 * improving node re-weighting scheme during MCMC path finding
 * add in the option to augment graphs with new paths during mapping
+* add a WASM ui
