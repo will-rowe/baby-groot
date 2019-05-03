@@ -27,19 +27,13 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/biogo/biogo/seq/multi"
 	"github.com/pkg/profile"
 	"github.com/spf13/cobra"
-	"github.com/will-rowe/baby-groot/src/graph"
-	"github.com/will-rowe/baby-groot/src/lshForest"
 	"github.com/will-rowe/baby-groot/src/misc"
-	"github.com/will-rowe/baby-groot/src/seqio"
-	"github.com/will-rowe/baby-groot/src/stream"
+	"github.com/will-rowe/baby-groot/src/pipeline"
 	"github.com/will-rowe/baby-groot/src/version"
-	"github.com/will-rowe/gfa"
 )
 
 // the command line arguments
@@ -81,7 +75,78 @@ func init() {
 	RootCmd.AddCommand(indexCmd)
 }
 
-//  a function to check user supplied parameters
+// runIndex is the main function for the index sub-command
+func runIndex() {
+
+	// set up profiling
+	if *profiling == true {
+		defer profile.Start(profile.ProfilePath("./")).Stop()
+	}
+
+	// start logging
+	if *logFile != "" {
+		logFH := misc.StartLogging(*logFile)
+		defer logFH.Close()
+		log.SetOutput(logFH)
+	} else {
+		log.SetOutput(os.Stdout)
+	}
+
+	// start the index  sub command
+	log.Printf("i am groot (version %s)", version.VERSION)
+	log.Printf("starting the index subcommand")
+
+	// check the supplied files and then log some stuff
+	log.Printf("checking parameters...")
+	misc.ErrorCheck(indexParamCheck())
+	log.Printf("\tprocessors: %d", *proc)
+	log.Printf("\tk-mer size: %d", *kmerSize)
+	log.Printf("\tsketch size: %d", *sketchSize)
+	if *kmvSketch {
+		log.Printf("\tMinHash algorithm: K-Minimum Values")
+	} else {
+		log.Printf("\tMinHash algorithm: Bottom-K")
+	}
+	log.Printf("\tgraph window size: %d", *windowSize)
+	log.Printf("\tnumber of MSA files found: %d", len(msaList))
+
+	// record runtime info
+	info := &pipeline.Info{
+		Version:    version.VERSION,
+		IndexDir:   *outDir,
+		KmerSize:   *kmerSize,
+		SketchSize: *sketchSize,
+		KMVsketch:  *kmvSketch,
+		JSthresh:   *jsThresh,
+		WindowSize: *windowSize,
+	}
+	misc.ErrorCheck(info.Dump(*outDir + "/index.info"))
+
+	// create the pipeline
+	log.Printf("initialising indexing pipeline...")
+	indexingPipeline := pipeline.NewPipeline()
+
+	// initialise processes
+	log.Printf("\tinitialising the processes")
+	msaConverter := pipeline.NewMSAconverter(info)
+	graphSketcher := pipeline.NewGraphSketcher(info)
+	sketchIndexer := pipeline.NewSketchIndexer(info)
+
+	// connect the pipeline processes
+	log.Printf("\tconnecting data streams")
+	msaConverter.Connect(msaList)
+	graphSketcher.Connect(msaConverter)
+	sketchIndexer.Connect(graphSketcher)
+
+	// submit each process to the pipeline and run it
+	indexingPipeline.AddProcesses(msaConverter, graphSketcher, sketchIndexer)
+	log.Printf("\tnumber of processes added to the indexing pipeline: %d\n", indexingPipeline.GetNumProcesses())
+	indexingPipeline.Run()
+	log.Printf("saved index files to \"%v\"...", *outDir)
+	log.Println("finished")
+}
+
+// indexParamCheck is a function to check user supplied parameters
 func indexParamCheck() error {
 	if *msaDir == "" {
 		misc.ErrorCheck(fmt.Errorf("no MSA directory specified - run `groot index --help` for more info on the command"))
@@ -120,141 +185,4 @@ func indexParamCheck() error {
 	}
 	runtime.GOMAXPROCS(*proc)
 	return nil
-}
-
-/*
-  The main function for the index command
-*/
-func runIndex() {
-	// set up profiling
-	if *profiling == true {
-		defer profile.Start(profile.ProfilePath("./")).Stop()
-	}
-	// start logging
-	if *logFile != "" {
-		logFH := misc.StartLogging(*logFile)
-		defer logFH.Close()
-		log.SetOutput(logFH)
-	} else {
-		log.SetOutput(os.Stdout)
-	}
-	// start sub command
-	log.Printf("i am groot (version %s)", version.VERSION)
-	log.Printf("starting the index subcommand")
-	// check the supplied files and then log some stuff
-	log.Printf("checking parameters...")
-	misc.ErrorCheck(indexParamCheck())
-	log.Printf("\tprocessors: %d", *proc)
-	log.Printf("\tk-mer size: %d", *kmerSize)
-	log.Printf("\tsketch size: %d", *sketchSize)
-	if *kmvSketch {
-		log.Printf("\tMinHash algorithm: K-Minimum Values")
-	} else {
-		log.Printf("\tMinHash algorithm: Bottom-K")
-	}
-	log.Printf("\tgraph window size: %d", *windowSize)
-	log.Printf("\tnumber of MSA files found: %d", len(msaList))
-	///////////////////////////////////////////////////////////////////////////////////////
-	log.Printf("building groot graphs...")
-	// process each msa in a go routine
-	var wg sync.WaitGroup
-	graphChan := make(chan *graph.GrootGraph)
-	for i, msaFile := range msaList {
-		// load the MSA outside of the go-routine to prevent 'too many open files' error on OSX
-		msa, err := gfa.ReadMSA(msaFile)
-		misc.ErrorCheck(err)
-		wg.Add(1)
-		go func(msaID int, msa *multi.Multi) {
-			defer wg.Done()
-			// convert the MSA to a GFA instance
-			newGFA, err := gfa.MSA2GFA(msa)
-			misc.ErrorCheck(err)
-			// create a GrootGraph
-			grootGraph, err := graph.CreateGrootGraph(newGFA, msaID)
-			if err != nil {
-				log.Fatal(err)
-			}
-			graphChan <- grootGraph
-		}(i, msa)
-	}
-	go func() {
-		wg.Wait()
-		close(graphChan)
-	}()
-	///////////////////////////////////////////////////////////////////////////////////////
-	// collect and store the GrootGraphs
-	graphStore := make(graph.GraphStore)
-	for graph := range graphChan {
-		graphStore[graph.GraphID] = graph
-	}
-	if len(graphStore) == 0 {
-		misc.ErrorCheck(fmt.Errorf("could not create any graphs"))
-	}
-	log.Printf("\tnumber of groot graphs built: %d", len(graphStore))
-	///////////////////////////////////////////////////////////////////////////////////////
-	log.Printf("windowing graphs and generating MinHash sketches...")
-	// process each graph in a go routine
-	windowChan := make(chan *seqio.Key)
-	for _, grootGraph := range graphStore {
-		wg.Add(1)
-		go func(grootGraph *graph.GrootGraph) {
-			defer wg.Done()
-			keyChecker := make(map[string]string)
-			// create sketch for each window in the graph
-			for window := range grootGraph.WindowGraph(*windowSize, *kmerSize, *sketchSize, *kmvSketch) {
-
-				// there may be multiple copies of the same window key
-				// - one graph+node+offset can have several subpaths to window
-				// - or windows can be derived from identical regions of the graph that multiple sequences share
-				// the keyCheck map will keep track of seen window keys
-				window.StringifiedKey = fmt.Sprintf("g%dn%do%d", window.GraphID, window.Node, window.OffSet)
-				newSubPath := misc.Stringify(window.SubPath)
-				if seenSubPath, ok := keyChecker[window.StringifiedKey]; ok {
-
-					// check if the subpath is identical
-					if newSubPath != seenSubPath {
-						// if it is different, we have multiple unique traversals from one node, so adjust the new key and send the window
-						window.StringifiedKey = fmt.Sprintf("g%dn%do%dp%d", window.GraphID, window.Node, window.OffSet, window.Ref)
-					} else {
-						// if it is identical, we don't need another sketch from the same subpath
-						continue
-					}
-				} else {
-					keyChecker[window.StringifiedKey] = newSubPath
-				}
-
-				// send the windows for this graph onto the single collection channel
-				windowChan <- window
-			}
-		}(grootGraph)
-	}
-	go func() {
-		wg.Wait()
-		close(windowChan)
-	}()
-	///////////////////////////////////////////////////////////////////////////////////////
-	log.Printf("running LSH forest...\n")
-	database := lshForest.NewLSHforest(*sketchSize, *jsThresh)
-	var sketchCount int = 0
-	for window := range windowChan {
-		sketchCount++
-		// add the sketch to the lshForest index
-		misc.ErrorCheck(database.Add(window))
-	}
-	numHF, numBucks := database.Settings()
-	log.Printf("\tnumber of hash functions per bucket: %d\n", numHF)
-	log.Printf("\tnumber of buckets: %d\n", numBucks)
-	log.Printf("\tnumber of sketches added: %d\n", sketchCount)
-	///////////////////////////////////////////////////////////////////////////////////////
-	// record runtime info
-	info := &stream.PipelineInfo{Version: version.VERSION, Ksize: *kmerSize, SigSize: *sketchSize, KMVsketch: *kmvSketch, JSthresh: *jsThresh, WindowSize: *windowSize}
-	// save the index files
-	log.Printf("saving index files to \"%v\"...", *outDir)
-	misc.ErrorCheck(info.Dump(*outDir + "/index.info"))
-	log.Printf("\tsaved runtime info")
-	misc.ErrorCheck(graphStore.Dump(*outDir + "/index.graph"))
-	log.Printf("\tsaved groot graphs")
-	misc.ErrorCheck(database.Dump(*outDir + "/index.sketches"))
-	log.Printf("\tsaved MinHash sketches")
-	log.Println("finished")
 }

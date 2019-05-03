@@ -4,6 +4,7 @@ package misc
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -15,14 +16,14 @@ import (
 // HASH_SIZE is set to 2/4/8 for 16bit/32bit/64bit hash values
 const HASH_SIZE = 8
 
-// a function to throw error to the log and exit the program
+// ErrorCheck is a function to throw error to the log and exit the program
 func ErrorCheck(msg error) {
 	if msg != nil {
 		log.Fatal("encountered error: ", msg)
 	}
 }
 
-// a function to check for required flags
+// CheckRequiredFlags is a function to check for required flags before running GROOT
 func CheckRequiredFlags(flags *pflag.FlagSet) error {
 	requiredError := false
 	flagName := ""
@@ -64,6 +65,60 @@ func StartLogging(logFile string) *os.File {
 		log.Fatal(err)
 	}
 	return logFH
+}
+
+// CheckSTDIN is a function to check that STDIN can be read
+func CheckSTDIN() error {
+	stat, err := os.Stdin.Stat()
+	if err != nil {
+		return fmt.Errorf("error with STDIN")
+	}
+	if (stat.Mode() & os.ModeNamedPipe) == 0 {
+		return fmt.Errorf("no STDIN found")
+	}
+	return nil
+}
+
+// CheckDir is a function to check that a directory exists
+func CheckDir(dir string) error {
+	if dir == "" {
+		return fmt.Errorf("no directory specified")
+	}
+	if _, err := os.Stat(dir); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("directory does not exist: %v", dir)
+		}
+		return fmt.Errorf("can't access adirectory (check permissions): %v", dir)
+	}
+	return nil
+}
+
+// CheckFile is a function to check that a file can be read
+func CheckFile(file string) error {
+	if _, err := os.Stat(file); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("file does not exist: %v", file)
+		}
+		return fmt.Errorf("can't access file (check permissions): %v", file)
+	}
+	return nil
+}
+
+// CheckExt is a function to check the extensions of a file
+func CheckExt(file string, exts []string) error {
+	splitFilename := strings.Split(file, ".")
+	finalIdx := len(splitFilename) - 1
+	if splitFilename[finalIdx] == "gz" {
+		finalIdx--
+	}
+	err := fmt.Errorf("file does not have recognised extension: %v", file)
+	for _, ext := range exts {
+		if splitFilename[finalIdx] == ext {
+			err = nil
+			break
+		}
+	}
+	return err
 }
 
 // Stringify is a function to print an array of unsigned integers as a string - taken from https://github.com/ekzhu/minhash-lsh TODO: benchmark with other stringify options

@@ -152,19 +152,19 @@ func (FASTQread *FASTQread) QualTrim(minQual int) {
 }
 
 // NewFASTQread generates a new fastq read from 4 lines of data
-func NewFASTQread(l1 []byte, l2 []byte, l3 []byte, l4 []byte) (FASTQread, error) {
+func NewFASTQread(l1 []byte, l2 []byte, l3 []byte, l4 []byte) (*FASTQread, error) {
 	// check that it looks like a fastq read TODO: need more fastq checks
-	if len(l2) != len(l4) {
-		return FASTQread{}, errors.New("sequence and quality score lines are unequal lengths in fastq file")
-	}
+	//if len(l2) != len(l4) {
+	//	return nil, errors.New("sequence and quality score lines are unequal lengths in fastq file")
+	//}
 	if l1[0] != 64 {
-		return FASTQread{}, errors.New("read ID in fastq file does not begin with @")
+		return nil, errors.New("read ID in fastq file does not begin with @")
 	}
 	// create a FASTQread struct
-	read := new(FASTQread)
-	read.ID = l1
-	read.Seq = l2
-	read.Misc = l3
-	read.Qual = l4
-	return *read, nil
+	seq := Sequence{ID: l1, Seq: l2}
+	return &FASTQread{
+		Sequence: seq,
+		Misc:     l3,
+		Qual:     l4,
+	}, nil
 }

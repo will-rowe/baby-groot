@@ -21,21 +21,18 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/pkg/profile"
 	"github.com/spf13/cobra"
-	"github.com/will-rowe/baby-groot/src/align"
 	"github.com/will-rowe/baby-groot/src/graph"
-	"github.com/will-rowe/baby-groot/src/lshForest"
+	"github.com/will-rowe/baby-groot/src/lshforest"
 	"github.com/will-rowe/baby-groot/src/misc"
-	"github.com/will-rowe/baby-groot/src/stream"
+	"github.com/will-rowe/baby-groot/src/pipeline"
 	"github.com/will-rowe/baby-groot/src/version"
 )
 
@@ -43,6 +40,7 @@ import (
 var (
 	indexDir        *string                                                           // directory containing the index files
 	fastq           *[]string                                                         // list of FASTQ files to align
+	fasta           *bool                                                             // flag to treat input as fasta sequences
 	bloomFilter     *bool                                                             // flag to use a bloom filter in order to prevent unique k-mers being used during sketching
 	minKmerCoverage *int                                                              // the minimum k-mer coverage per base of a segment
 	minBaseCoverage *float64                                                          // percentage of the segment bases that had reads align
@@ -67,6 +65,7 @@ var alignCmd = &cobra.Command{
 func init() {
 	indexDir = alignCmd.Flags().StringP("indexDir", "i", "", "directory containing the index files - required")
 	fastq = alignCmd.Flags().StringSliceP("fastq", "f", []string{}, "FASTQ file(s) to align")
+	fasta = alignCmd.Flags().Bool("fasta", false, "if set, the input will be treated as fasta sequence(s) (experimental feature)")
 	bloomFilter = alignCmd.Flags().Bool("bloomFilter", false, "if set, a bloom filter will be used to stop unique k-mers being added to sketches")
 	minKmerCoverage = alignCmd.Flags().IntP("minKmerCov", "k", 1, "minimum k-mer coverage per base of a segment")
 	minBaseCoverage = alignCmd.Flags().Float64P("minBaseCov", "c", 0.1, "percentage of the graph segment bases that must have reads align")
@@ -76,62 +75,121 @@ func init() {
 
 }
 
+// runAlign is the main function for the align sub-command
+func runAlign() {
+
+	// set up profiling
+	if *profiling == true {
+		//defer profile.Start(profile.MemProfile, profile.ProfilePath("./")).Stop()
+		defer profile.Start(profile.ProfilePath("./")).Stop()
+	}
+
+	// start logging
+	if *logFile != "" {
+		logFH := misc.StartLogging(*logFile)
+		defer logFH.Close()
+		log.SetOutput(logFH)
+	} else {
+		log.SetOutput(os.Stdout)
+	}
+
+	// start the align sub command
+	log.Printf("i am groot (version %s)", version.VERSION)
+	log.Printf("starting the align subcommand")
+
+	// check the supplied files and then log some stuff
+	log.Printf("checking parameters...")
+	misc.ErrorCheck(alignParamCheck())
+	if *bloomFilter {
+		log.Printf("\tignoring unique k-mers: true")
+	} else {
+		log.Printf("\tignoring unique k-mers: false")
+	}
+	log.Printf("\tminimum k-mer frequency: %d", *minKmerCoverage)
+	log.Printf("\tminimum base coverage: %0.0f%%", *minBaseCoverage*100)
+	log.Printf("\tprocessors: %d", *proc)
+	for _, file := range *fastq {
+		log.Printf("\tinput file: %v", file)
+	}
+	if *fasta {
+		log.Print("\tinput file format: fasta")
+	}
+	log.Print("loading index information...")
+	info := new(pipeline.Info)
+	misc.ErrorCheck(info.Load(*indexDir + "/index.info"))
+	log.Printf("\tk-mer size: %d\n", info.KmerSize)
+	log.Printf("\tsketch size: %d\n", info.SketchSize)
+	log.Printf("\tJaccard similarity theshold: %0.2f\n", info.JSthresh)
+	log.Printf("\twindow size used in indexing: %d\n", info.WindowSize)
+	log.Print("loading the groot graphs...")
+	graphStore := make(graph.GraphStore)
+	misc.ErrorCheck(graphStore.Load(*indexDir + "/index.graph"))
+	log.Printf("\tnumber of variation graphs: %d\n", len(graphStore))
+	log.Print("loading the MinHash sketches...")
+	database := lshforest.NewLSHforest(info.SketchSize, info.JSthresh)
+	misc.ErrorCheck(database.Load(*indexDir + "/index.sketches"))
+	log.Print("sorting the index...")
+	database.Index()
+	numHF, numBucks := database.Settings()
+	log.Printf("\tnumber of hash functions per bucket: %d\n", numHF)
+	log.Printf("\tnumber of buckets: %d\n", numBucks)
+
+	// add the align information to the existing index information
+	info.Fasta = *fasta
+	info.BloomFilter = *bloomFilter
+	info.MinKmerCoverage = *minKmerCoverage
+	info.MinBaseCoverage = *minBaseCoverage
+	info.Db = database
+	info.GraphStore = graphStore
+	info.GraphDir = *graphDir
+
+	// create the pipeline
+	log.Printf("initialising alignment pipeline...")
+	alignmentPipeline := pipeline.NewPipeline()
+
+	// initialise processes
+	log.Printf("\tinitialising the processes")
+	dataStream := pipeline.NewDataStreamer(info)
+	fastqHandler := pipeline.NewFastqHandler(info)
+	fastqChecker := pipeline.NewFastqChecker(info)
+	dbQuerier := pipeline.NewDbQuerier(info)
+	graphPruner := pipeline.NewGraphPruner(info)
+
+	// connect the pipeline processes
+	log.Printf("\tconnecting data streams")
+	dataStream.Connect(*fastq)
+	fastqHandler.Connect(dataStream)
+	fastqChecker.Connect(fastqHandler)
+	dbQuerier.Connect(fastqChecker)
+	graphPruner.Connect(dbQuerier)
+
+	// submit each process to the pipeline and run it
+	alignmentPipeline.AddProcesses(dataStream, fastqHandler, fastqChecker, dbQuerier, graphPruner)
+	log.Printf("\tnumber of processes added to the alignment pipeline: %d\n", alignmentPipeline.GetNumProcesses())
+	alignmentPipeline.Run()
+	log.Println("finished")
+}
+
 // alignParamCheck is a function to check user supplied parameters
 func alignParamCheck() error {
 	// check the supplied FASTQ file(s)
 	if len(*fastq) == 0 {
-		stat, err := os.Stdin.Stat()
-		if err != nil {
-			return fmt.Errorf("error with STDIN")
-		}
-		if (stat.Mode() & os.ModeNamedPipe) == 0 {
-			return fmt.Errorf("no STDIN found")
-		}
+		misc.ErrorCheck(misc.CheckSTDIN())
 		log.Printf("\tinput file: using STDIN")
 	} else {
 		for _, fastqFile := range *fastq {
-			if _, err := os.Stat(fastqFile); err != nil {
-				if os.IsNotExist(err) {
-					return fmt.Errorf("FASTQ file does not exist: %v", fastqFile)
-				} else {
-					return fmt.Errorf("can't access FASTQ file (check permissions): %v", fastqFile)
-				}
-			}
-			splitFilename := strings.Split(fastqFile, ".")
-			if splitFilename[len(splitFilename)-1] == "gz" {
-				if splitFilename[len(splitFilename)-2] == "fastq" || splitFilename[len(splitFilename)-2] == "fq" {
-					continue
-				}
-			} else {
-				if splitFilename[len(splitFilename)-1] == "fastq" || splitFilename[len(splitFilename)-1] == "fq" {
-					continue
-				}
-			}
-			return fmt.Errorf("does not look like a FASTQ file: %v", fastqFile)
+			misc.ErrorCheck(misc.CheckFile(fastqFile))
+			misc.ErrorCheck(misc.CheckExt(fastqFile, []string{"fastq", "fq", "fasta", "fna", "fa"}))
 		}
 	}
 	// check the index directory and files
-	if *indexDir == "" {
-		misc.ErrorCheck(errors.New("need to specify the directory where the index files are"))
-	}
-	if _, err := os.Stat(*indexDir); err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("index directory does not exist: %v", *indexDir)
-		} else {
-			return fmt.Errorf("can't access an index directory (check permissions): %v", indexDir)
-		}
-	}
+	misc.ErrorCheck(misc.CheckDir(*indexDir))
 	indexFiles := [3]string{"/index.graph", "/index.info", "/index.sketches"}
 	for _, indexFile := range indexFiles {
-		if _, err := os.Stat(*indexDir + indexFile); err != nil {
-			if os.IsNotExist(err) {
-				return fmt.Errorf("index file does not exist: %v", indexFile)
-			} else {
-				return fmt.Errorf("can't access an index file (check permissions): %v", indexFile)
-			}
-		}
+		file := *indexDir + indexFile
+		misc.ErrorCheck(misc.CheckFile(file))
 	}
-	info := new(stream.PipelineInfo)
+	info := new(pipeline.Info)
 	misc.ErrorCheck(info.Load(*indexDir + "/index.info"))
 	if info.Version != version.VERSION {
 		return fmt.Errorf("the groot index was created with a different version of groot (you are currently using version %v)", version.VERSION)
@@ -152,91 +210,4 @@ func alignParamCheck() error {
 	}
 	runtime.GOMAXPROCS(*proc)
 	return nil
-}
-
-// runAlign is the main function for the align sub-command
-func runAlign() {
-	// set up profiling
-	if *profiling == true {
-		//defer profile.Start(profile.MemProfile, profile.ProfilePath("./")).Stop()
-		defer profile.Start(profile.ProfilePath("./")).Stop()
-	}
-	// start logging
-	if *logFile != "" {
-		logFH := misc.StartLogging(*logFile)
-		defer logFH.Close()
-		log.SetOutput(logFH)
-	} else {
-		log.SetOutput(os.Stdout)
-	}
-	// start sub command
-	log.Printf("i am groot (version %s)", version.VERSION)
-	log.Printf("starting the align subcommand")
-	// check the supplied files and then log some stuff
-	log.Printf("checking parameters...")
-	misc.ErrorCheck(alignParamCheck())
-	if *bloomFilter {
-		log.Printf("\tignoring unique k-mers: true")
-	} else {
-		log.Printf("\tignoring unique k-mers: false")
-	}
-	log.Printf("\tminimum k-mer frequency: %d", *minKmerCoverage)
-	log.Printf("\tminimum base coverage: %0.0f%%", *minBaseCoverage*100)
-	log.Printf("\tprocessors: %d", *proc)
-	for _, file := range *fastq {
-		log.Printf("\tinput file: %v", file)
-	}
-	log.Print("loading index information...")
-	info := new(stream.PipelineInfo)
-	misc.ErrorCheck(info.Load(*indexDir + "/index.info"))
-	log.Printf("\tk-mer size: %d\n", info.Ksize)
-	log.Printf("\tsketch size: %d\n", info.SigSize)
-	log.Printf("\tJaccard similarity theshold: %0.2f\n", info.JSthresh)
-	log.Printf("\twindow size used in indexing: %d\n", info.WindowSize)
-	log.Print("loading the groot graphs...")
-	graphStore := make(graph.GraphStore)
-	misc.ErrorCheck(graphStore.Load(*indexDir + "/index.graph"))
-	log.Printf("\tnumber of variation graphs: %d\n", len(graphStore))
-	log.Print("loading the MinHash sketches...")
-	database := lshForest.NewLSHforest(info.SigSize, info.JSthresh)
-	misc.ErrorCheck(database.Load(*indexDir + "/index.sketches"))
-	log.Print("sorting the index...")
-	database.Index()
-	numHF, numBucks := database.Settings()
-	log.Printf("\tnumber of hash functions per bucket: %d\n", numHF)
-	log.Printf("\tnumber of buckets: %d\n", numBucks)
-	// add the align information to the stored index information
-	info.BloomFilter = *bloomFilter
-	info.MinKmerCoverage = *minKmerCoverage
-	info.MinBaseCoverage = *minBaseCoverage
-	info.Db = database
-	info.GraphStore = graphStore
-	info.GraphDir = *graphDir
-	///////////////////////////////////////////////////////////////////////////////////////
-
-	// create the pipeline
-	log.Printf("initialising alignment pipeline...")
-	pipeline := stream.NewPipeline()
-
-	// initialise processes
-	log.Printf("\tinitialising the processes")
-	dataStream := align.NewDataStreamer(info)
-	fastqHandler := align.NewFastqHandler(info)
-	fastqChecker := align.NewFastqChecker(info)
-	dbQuerier := align.NewDbQuerier(info)
-	graphPruner := align.NewGraphPruner(info)
-
-	// arrange pipeline processes
-	log.Printf("\tconnecting data streams")
-	dataStream.Input = *fastq
-	fastqHandler.Input = dataStream.Output
-	fastqChecker.Input = fastqHandler.Output
-	dbQuerier.Input = fastqChecker.Output
-	graphPruner.Input = dbQuerier.Output
-
-	// submit each process to the pipeline and run it
-	pipeline.AddProcesses(dataStream, fastqHandler, fastqChecker, dbQuerier, graphPruner)
-	log.Printf("\tnumber of processes added to the alignment pipeline: %d\n", len(pipeline.Processes))
-	pipeline.Run()
-	log.Println("finished")
 }
