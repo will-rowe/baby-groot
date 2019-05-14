@@ -10,7 +10,7 @@ import (
 )
 
 // BUFFERSIZE is the size of the buffer used by the pipeline channels
-const BUFFERSIZE int = 128
+const BUFFERSIZE int = 64
 
 // process is the interface used by pipeline
 type process interface {
@@ -59,20 +59,40 @@ func (Pipeline *Pipeline) GetNumProcesses() int {
 
 // Info stores the runtime information
 type Info struct {
-	Version         string
-	IndexDir        string
-	KmerSize        int
-	SketchSize      int
-	KMVsketch       bool
-	JSthresh        float64
-	WindowSize      int
+	Version   string
+	Store     graph.Store
+	Db        *lshforest.LSHforest
+	Index     *IndexCmd
+	Sketch    *SketchCmd
+	Haplotype *HaploCmd
+}
+
+// IndexCmd stores the runtime info for the index command
+type IndexCmd struct {
+	KmerSize   int
+	SketchSize int
+	KMVsketch  bool
+	JSthresh   float64
+	WindowSize int
+	IndexDir   string
+}
+
+// SketchCmd stores the runtime info for the sketch command
+type SketchCmd struct {
 	Fasta           bool
 	BloomFilter     bool
 	MinKmerCoverage int
 	MinBaseCoverage float64
-	Db              *lshforest.LSHforest
-	GraphStore      graph.GraphStore
 	GraphDir        string
+	TotalKmers      float64
+}
+
+// HaploCmd stores the runtime info for the haplotype command
+type HaploCmd struct {
+	Cutoff        float64
+	MinIterations int
+	MaxIterations int
+	HaploDir      string
 }
 
 // Dump is a method to dump the Info to file

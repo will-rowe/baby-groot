@@ -1,4 +1,3 @@
-// this package is used to process and convert between MSA, GFA graphs and GROOT graphs
 package graph
 
 import (
@@ -15,9 +14,7 @@ func (a Nodes) Len() int           { return len(a) }
 func (a Nodes) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a Nodes) Less(i, j int) bool { return a[i] < a[j] }
 
-/*
-   GrootGraphNode is a GFA segment (plus the extra info from path, links etc.)
-*/
+// GrootGraphNode is a GFA segment (plus the extra info from path, links etc.)
 type GrootGraphNode struct {
 	SegmentID uint64
 	Sequence  []byte
@@ -34,8 +31,22 @@ func (GrootGraphNode *GrootGraphNode) IncrementKmerFreq(increment float64) error
 		return fmt.Errorf("positive increment not received: %f", increment)
 	}
 	GrootGraphNode.nodeLock.Lock()
-	defer GrootGraphNode.nodeLock.Unlock()
 	GrootGraphNode.KmerFreq += increment
+	GrootGraphNode.nodeLock.Unlock()
+	return nil
+}
+
+// DecrementKmerFreq is a method to decrement a node's k-mer count
+func (GrootGraphNode *GrootGraphNode) DecrementKmerFreq(decrement float64) error {
+	if decrement <= 0.0 {
+		return fmt.Errorf("positive decrement not received: %f", decrement)
+	}
+	GrootGraphNode.nodeLock.Lock()
+	GrootGraphNode.KmerFreq -= decrement
+	if GrootGraphNode.KmerFreq < 0 {
+		GrootGraphNode.KmerFreq = 0
+	}
+	GrootGraphNode.nodeLock.Unlock()
 	return nil
 }
 

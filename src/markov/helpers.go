@@ -4,9 +4,8 @@ import "strings"
 
 //Pair is a pair of consecutive states in a sequece
 type Pair struct {
-	CurrentState  NGram // n = order of the chain
-	CurrentWeight float64
-	NextState     string // n = 1
+	CurrentState NGram  // n = order of the chain
+	NextState    string // n = 1
 }
 
 //NGram is a array of words
@@ -41,26 +40,13 @@ func array(value string, count int) []string {
 	return arr
 }
 
-func floatArray(value float64, count int) []float64 {
-	arr := make([]float64, count)
-	for i := range arr {
-		arr[i] = value
-	}
-	return arr
-}
-
 //MakePairs generates n-gram pairs of consecutive states in a sequence
-func MakePairs(tokens []string, weights []float64, order int) []Pair {
-	var pairs []Pair
+func MakePairs(tokens []string, order int) []*Pair {
+	var pairs []*Pair
 	for i := 0; i < len(tokens)-order; i++ {
-		combinedWeight := 0.0
-		for j := i; j < i+order; j++ {
-			combinedWeight += weights[j]
-		}
-		pair := Pair{
-			CurrentState:  tokens[i : i+order],
-			CurrentWeight: combinedWeight,
-			NextState:     tokens[i+order],
+		pair := &Pair{
+			CurrentState: tokens[i : i+order],
+			NextState:    tokens[i+order],
 		}
 		pairs = append(pairs, pair)
 	}

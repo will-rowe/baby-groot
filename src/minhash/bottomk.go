@@ -38,13 +38,18 @@ func (BottomKsketch *BottomKsketch) Add(sequence []byte) error {
 	}
 	// get hashed kmers from sequence and evaluate
 	for hv := range hasher.Hash(canonical) {
-		// if there is a bloom filter attached to the minhash object, use it to only add non-unique kmers
-		if BottomKsketch.BloomFilter != nil {
-			if !BottomKsketch.BloomFilter.Check(hv) {
-				BottomKsketch.BloomFilter.Add(hv)
-				continue
-			}
-		}
+
+		/*
+			TODO: reimplement this
+				// if there is a bloom filter attached to the minhash object, use it to only add non-unique kmers
+				if BottomKsketch.BloomFilter != nil {
+					if !BottomKsketch.BloomFilter.Check(hv) {
+						BottomKsketch.BloomFilter.Add(hv)
+						continue
+					}
+				}
+		*/
+
 		// if the sketch isn't full yet, add the hashed k-mer
 		if len(*BottomKsketch.sketch) < BottomKsketch.sketchSize {
 			heap.Push(BottomKsketch.sketch, hv)

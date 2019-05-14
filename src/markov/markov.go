@@ -33,19 +33,15 @@ func NewChain(order int) *Chain {
 }
 
 // Add adds the transition counts to the chain for a given sequence of words
-func (chain *Chain) Add(input []string, weights []float64) {
+func (chain *Chain) Add(input []string) {
 	startTokens := array(StartToken, chain.Order)
 	endTokens := array(EndToken, chain.Order)
-	nilWeights := floatArray(0.0, chain.Order)
-	tokens := make([]string, 0)
+	tokens := []string{}
 	tokens = append(tokens, startTokens...)
 	tokens = append(tokens, input...)
 	tokens = append(tokens, endTokens...)
-	frequencies := make([]float64, 0)
-	frequencies = append(frequencies, nilWeights...)
-	frequencies = append(frequencies, weights...)
-	frequencies = append(frequencies, nilWeights...)
-	pairs := MakePairs(tokens, frequencies, chain.Order)
+
+	pairs := MakePairs(tokens, chain.Order)
 	for i := 0; i < len(pairs); i++ {
 		pair := pairs[i]
 		currentIndex := chain.statePool.add(pair.CurrentState.key())
@@ -54,13 +50,17 @@ func (chain *Chain) Add(input []string, weights []float64) {
 		if chain.frequencyMat[currentIndex] == nil {
 			chain.frequencyMat[currentIndex] = make(sparseArray, 0)
 		}
-		chain.frequencyMat[currentIndex][nextIndex] += pair.CurrentWeight
+		chain.frequencyMat[currentIndex][nextIndex]++
+
 		chain.lock.Unlock()
 	}
 }
 
 // Scale will adjust the transition count for a given N-gram + string transition count
 func (chain *Chain) Scale(next string, current NGram, scaling float64) error {
+	if scaling == 0.0 {
+		return nil
+	}
 	startToken := true
 	for i := 0; i < len(current); i++ {
 		if current[i] == "" {

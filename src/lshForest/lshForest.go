@@ -28,21 +28,18 @@ type LSHforest struct {
 	L              int
 	sketchSize     int
 	InitHashTables []initialHashTable
-	hashTables     []hashTable
-	KeyLookup      KeyLookupMap
-	mapLock        sync.RWMutex
+	hashTables     []hashTable // these sorted slices are equivalent to the prefix trees used in the LSH Forest paper
+	KeyLookup      *keyLookup
+	SketchCounter  int
 }
 
-// keys is a slice containing all the stringified keys for a given sketch
-type keys []string
-
 // the initial hash table uses the stringified sketch as a key - the values are the corresponding keys
-type initialHashTable map[string]keys
+type initialHashTable map[string][]string
 
 // a bucket is a single hash table that is stored in the hashTables - it contains part of the stringified sketch and the corresponding keys
 type bucket struct {
 	stringifiedSketch string
-	keys              keys
+	keys              []string
 }
 
 // this is populated during indexing -- it is a slice of buckets and can be sorted
@@ -54,7 +51,10 @@ func (h hashTable) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
 func (h hashTable) Less(i, j int) bool { return h[i].stringifiedSketch < h[j].stringifiedSketch }
 
 // KeyLookupMap relates the stringified seqio.Key to the original, allowing LSHforest search results to easily be related to graph locations
-type KeyLookupMap map[string]*seqio.Key
+type keyLookup struct {
+	Mappy  map[string]*seqio.Key
+	access sync.RWMutex
+}
 
 // Settings will print the number of hash functions and number of buckets set by the LSH forest
 func (LSHforest *LSHforest) Settings() (K, L int) {
@@ -77,9 +77,9 @@ func (LSHforest *LSHforest) Add(key *seqio.Key) error {
 	}
 	// iterate over each bucket in the LSH forest
 	for i := 0; i < len(LSHforest.InitHashTables); i++ {
-		// if the current bucket in the sketch isn't in the current bucket in the LSH forest, add it
+		// if the current partition of the sketch isn't in the current bucket in the LSH forest, add it
 		if _, ok := LSHforest.InitHashTables[i][stringifiedSketch[i]]; !ok {
-			LSHforest.InitHashTables[i][stringifiedSketch[i]] = make(keys, 1)
+			LSHforest.InitHashTables[i][stringifiedSketch[i]] = make([]string, 1)
 			LSHforest.InitHashTables[i][stringifiedSketch[i]][0] = key.StringifiedKey
 		} else {
 			// if it is, append the current key (graph location) to this hashed sketch bucket
@@ -88,6 +88,7 @@ func (LSHforest *LSHforest) Add(key *seqio.Key) error {
 	}
 	// delete the sketch from the key (to save some space)
 	key.Sketch = make([]uint64, 0, 0)
+	LSHforest.SketchCounter++
 	return nil
 }
 
@@ -129,28 +130,53 @@ func (LSHforest *LSHforest) Load(path string) error {
 
 // Query is the exported method for querying and returning similar sketches from the LSH forest
 func (LSHforest *LSHforest) Query(sketch []uint64) []string {
+	// TODO: this should be an error, not a panic
+	if len(LSHforest.hashTables[0]) == 0 {
+		panic("LSH Forest has not been indexed")
+	}
 	result := make([]string, 0)
 	// more info on done chans for explicit cancellation in concurrent pipelines: https://blog.golang.org/pipelines
 	done := make(chan struct{})
-	defer close(done)
 	// collect query results and aggregate in a single array to send back
 	for key := range LSHforest.runQuery(sketch, done) {
 		result = append(result, key)
 	}
+	close(done)
 	return result
 }
 
 // GetKey will return the seqio.Key for the stringified version
 func (LSHforest *LSHforest) GetKey(key string) (*seqio.Key, error) {
-	LSHforest.mapLock.Lock()
-	defer LSHforest.mapLock.Unlock()
-	if returnKey, ok := LSHforest.KeyLookup[key]; ok {
+	LSHforest.KeyLookup.access.Lock()
+	defer LSHforest.KeyLookup.access.Unlock()
+	if returnKey, ok := LSHforest.KeyLookup.Mappy[key]; ok {
 		return returnKey, nil
 	}
 	return nil, fmt.Errorf("key not found in LSH Forest: %v", key)
 }
 
-// NewLSHforest is the constructor function
+// addKey will add a seqio.Key to the lookup map, storing it under a stringified version of the key
+func (LSHforest *LSHforest) addKey(key *seqio.Key) error {
+	if key.StringifiedKey == "" {
+		return fmt.Errorf("encountered key that contains no lookup value")
+	}
+	LSHforest.KeyLookup.access.Lock()
+	if _, contains := LSHforest.KeyLookup.Mappy[key.StringifiedKey]; contains {
+		return fmt.Errorf("duplicated key encountered: %v", key.StringifiedKey)
+	}
+	LSHforest.KeyLookup.Mappy[key.StringifiedKey] = key
+	LSHforest.KeyLookup.access.Unlock()
+	return nil
+}
+
+// NewKeyLookup is the constructor
+func NewKeyLookup() *keyLookup {
+	return &keyLookup{
+		Mappy: make(map[string]*seqio.Key),
+	}
+}
+
+// NewLSHforest is the constructor
 func NewLSHforest(sketchSize int, jsThresh float64) *LSHforest {
 	// calculate the optimal number of buckets and hash functions to use, based on the length of MinHash sketch and a Jaccard Similarity theshhold
 	k, l, _, _ := optimise(sketchSize, jsThresh)
@@ -164,8 +190,7 @@ func NewLSHforest(sketchSize int, jsThresh float64) *LSHforest {
 	for i := range ht {
 		ht[i] = make(hashTable, 0)
 	}
-	// create the KeyLookup map to project sketches on to the graphs
-	kl := make(KeyLookupMap)
+
 	// return the address of the new LSH forest
 	return &LSHforest{
 		K:              k,
@@ -173,19 +198,8 @@ func NewLSHforest(sketchSize int, jsThresh float64) *LSHforest {
 		sketchSize:     sketchSize,
 		InitHashTables: iht,
 		hashTables:     ht,
-		KeyLookup:      kl,
+		KeyLookup:      NewKeyLookup(),
 	}
-}
-
-// addKey will add a seqio.Key to the lookup map, storing it under a stringified version of the key
-func (LSHforest *LSHforest) addKey(key *seqio.Key) error {
-	LSHforest.mapLock.Lock()
-	defer LSHforest.mapLock.Unlock()
-	//if _, ok := LSHforest.KeyLookup[key.StringifiedKey]; ok {
-	//	return fmt.Errorf("key already in LSH Forest: %v", key.StringifiedKey)
-	//}
-	LSHforest.KeyLookup[key.StringifiedKey] = key
-	return nil
 }
 
 // runQuery does the actual work
@@ -201,7 +215,7 @@ func (LSHforest *LSHforest) runQuery(sketch []uint64, done <-chan struct{}) <-ch
 		// don't send back multiple copies of the same key
 		seens := make(map[string]bool)
 		// compress internal nodes using a prefix
-		prefixSize := misc.HASH_SIZE * LSHforest.K
+		prefixSize := misc.HASH_SIZE * (LSHforest.K - 1)
 		// run concurrent hashtable queries
 		keyChan := make(chan string)
 		var wg sync.WaitGroup
@@ -210,16 +224,18 @@ func (LSHforest *LSHforest) runQuery(sketch []uint64, done <-chan struct{}) <-ch
 			go func(bucket hashTable, queryChunk string) {
 				defer wg.Done()
 				// sort.Search uses binary search to find and return the smallest index i in [0, n) at which f(i) is true
-				index := sort.Search(len(bucket), func(x int) bool { return bucket[x].stringifiedSketch[:prefixSize] >= queryChunk })
+				index := sort.Search(len(bucket), func(x int) bool { return bucket[x].stringifiedSketch[:prefixSize] >= queryChunk[:prefixSize] })
 				// k is the index returned by the search
-				if index < len(bucket) && bucket[index].stringifiedSketch[:prefixSize] == queryChunk {
-					for j := index; j < len(bucket) && bucket[j].stringifiedSketch[:prefixSize] == queryChunk; j++ {
-						// copies key values from this hashtable to the keyChan until all values from bucket[j] copied or done is closed
-						for _, key := range bucket[j].keys {
-							select {
-							case keyChan <- key:
-							case <-done:
-								return
+				if index < len(bucket) && bucket[index].stringifiedSketch[:prefixSize] == queryChunk[:prefixSize] {
+					for j := index; j < len(bucket) && bucket[j].stringifiedSketch[:prefixSize] == queryChunk[:prefixSize]; j++ {
+						if bucket[j].stringifiedSketch == queryChunk {
+							// if the query matches the bucket, send the keys as search results
+							for _, key := range bucket[j].keys {
+								select {
+								case keyChan <- key:
+								case <-done:
+									return
+								}
 							}
 						}
 					}

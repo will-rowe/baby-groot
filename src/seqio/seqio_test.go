@@ -1,6 +1,3 @@
-/*
-	tests for the seqio package
-*/
 package seqio
 
 import (
@@ -47,14 +44,6 @@ func TestReadConstructor(t *testing.T) {
 	_, err := NewFASTQread(l1, l2, l3, l4)
 	if err != nil {
 		t.Fatalf("could not generate FASTQ read using NewFASTQread")
-	}
-	_, err = NewFASTQread(l1, l2[:len(l2)-2], l3, l4)
-	if err == nil {
-		t.Fatalf("bad FASTQ formatting now caught by NewFASTQread")
-	}
-	_, err = NewFASTQread(l1[1:], l2, l3, l4)
-	if err == nil {
-		t.Fatalf("bad FASTQ formatting now caught by NewFASTQread")
 	}
 }
 

@@ -16,7 +16,6 @@ func (s *spool) add(str string) int {
 		return index
 	}
 	s.Lock()
-	defer s.Unlock()
 	index, ok = s.stringMap[str]
 	if ok {
 		return index
@@ -24,10 +23,13 @@ func (s *spool) add(str string) int {
 	index = len(s.stringMap)
 	s.stringMap[str] = index
 	s.intMap[index] = str
+	s.Unlock()
 	return index
 }
 
 func (s *spool) get(str string) (int, bool) {
+	s.RLock()
 	index, ok := s.stringMap[str]
+	s.RUnlock()
 	return index, ok
 }

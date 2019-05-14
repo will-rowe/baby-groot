@@ -1,4 +1,3 @@
-// this package is used to process and convert between MSA, GFA graphs and GROOT graphs
 package graph
 
 import (
@@ -9,18 +8,17 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/will-rowe/baby-groot/src/version"
 	"github.com/will-rowe/gfa"
 	"gopkg.in/vmihailenco/msgpack.v2"
 )
 
-/*
-  A struct to store multiple graphs
-*/
-type GraphStore map[int]*GrootGraph
+// Store stores the GROOT graphs...
+type Store map[int]*GrootGraph
 
 // Dump is a method to save a GrootGraph to file
-func (graphStore *GraphStore) Dump(path string) error {
-	b, err := msgpack.Marshal(graphStore)
+func (Store *Store) Dump(path string) error {
+	b, err := msgpack.Marshal(Store)
 	if err != nil {
 		return err
 	}
@@ -28,20 +26,20 @@ func (graphStore *GraphStore) Dump(path string) error {
 }
 
 // Load is a method to load a GrootGraph from file
-func (graphStore *GraphStore) Load(path string) error {
+func (Store *Store) Load(path string) error {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	return msgpack.Unmarshal(b, graphStore)
+	return msgpack.Unmarshal(b, Store)
 }
 
 // SaveGraphAsGFA is a method to convert and save a GrootGraph in GFA format
-func (graph *GrootGraph) SaveGraphAsGFA(fileName string) (int, error) {
+func (GrootGraph *GrootGraph) SaveGraphAsGFA(fileName string) (int, error) {
 	// a flag to prevent dumping graphs which had no reads map
 	graphUsed := false
 	t := time.Now()
-	stamp := fmt.Sprintf("variation graph created by groot at: %v", t.Format("Mon Jan _2 15:04:05 2006"))
+	stamp := fmt.Sprintf("variation graph created by groot (version %v) at: %v", version.VERSION, t.Format("Mon Jan _2 15:04:05 2006"))
 	msg := []byte("this graph is approximately weighted using k-mer frequencies from projected read sketches")
 	// create a GFA instance
 	newGFA := gfa.NewGFA()
@@ -49,7 +47,7 @@ func (graph *GrootGraph) SaveGraphAsGFA(fileName string) (int, error) {
 	newGFA.AddComment([]byte(stamp))
 	newGFA.AddComment(msg)
 	// transfer all the GrootGraphNode content to the GFA instance
-	for _, node := range graph.SortedNodes {
+	for _, node := range GrootGraph.SortedNodes {
 		// BABY GROOT - some nodes will be nil after pruning, ignore these
 		if node == nil {
 			continue
@@ -87,9 +85,9 @@ func (graph *GrootGraph) SaveGraphAsGFA(fileName string) (int, error) {
 		return 0, nil
 	}
 	// create the paths
-	for pathID, pathName := range graph.Paths {
+	for pathID, pathName := range GrootGraph.Paths {
 		segments, overlaps := [][]byte{}, [][]byte{}
-		for _, node := range graph.SortedNodes {
+		for _, node := range GrootGraph.SortedNodes {
 			// BABY GROOT - some nodes will be nil after pruning, ignore these
 			if node == nil {
 				continue

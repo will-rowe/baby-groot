@@ -17,7 +17,7 @@ import (
 	"github.com/will-rowe/gfa"
 )
 
-// MSAconverter is a pipeline process that streams data from STDIN/file
+// MSAconverter is a pipeline process that converts a list of MSAs to GFAs
 type MSAconverter struct {
 	info   *Info
 	input  []string
@@ -37,13 +37,13 @@ func (proc *MSAconverter) Connect(input []string) {
 // Run is the method to run this process, which satisfies the pipeline interface
 func (proc *MSAconverter) Run() {
 	var wg sync.WaitGroup
+	wg.Add(len(proc.input))
+
 	// load each MSA outside of the go-routines to prevent 'too many open files' error on OSX
 	for i, msaFile := range proc.input {
 		msa, err := gfa.ReadMSA(msaFile)
 		misc.ErrorCheck(err)
-		wg.Add(1)
 		go func(msaID int, msa *multi.Multi) {
-			defer wg.Done()
 			// convert the MSA to a GFA instance
 			newGFA, err := gfa.MSA2GFA(msa)
 			misc.ErrorCheck(err)
@@ -53,6 +53,7 @@ func (proc *MSAconverter) Run() {
 				misc.ErrorCheck(err)
 			}
 			proc.output <- grootGraph
+			wg.Done()
 		}(i, msa)
 	}
 	wg.Wait()
@@ -82,43 +83,28 @@ func (proc *GraphSketcher) Run() {
 
 	// after sketching all the received graphs, add the graphs to a store and save it
 	graphChan := make(chan *graph.GrootGraph)
-	graphStore := make(graph.GraphStore)
+	graphStore := make(graph.Store)
 
 	// receive the graphs to be sketched
 	var wg sync.WaitGroup
 	for newGraph := range proc.input {
 		wg.Add(1)
 		go func(grootGraph *graph.GrootGraph) {
-			defer wg.Done()
-			keyChecker := make(map[string]string)
-			// create sketch for each window in the graph
-			for window := range grootGraph.WindowGraph(proc.info.WindowSize, proc.info.KmerSize, proc.info.SketchSize, proc.info.KMVsketch) {
 
-				// there may be multiple copies of the same window key
+			// create sketch for each window in the graph
+			for window := range grootGraph.WindowGraph(proc.info.Index.WindowSize, proc.info.Index.KmerSize, proc.info.Index.SketchSize, proc.info.Index.KMVsketch) {
+
+				// there may be multiple copies of the same window
 				// - one graph+node+offset can have several subpaths to window
 				// - or windows can be derived from identical regions of the graph that multiple sequences share
-				// the keyCheck map will keep track of seen window keys
-				window.StringifiedKey = fmt.Sprintf("g%dn%do%d", window.GraphID, window.Node, window.OffSet)
-				newSubPath := misc.Stringify(window.SubPath)
-				if seenSubPath, ok := keyChecker[window.StringifiedKey]; ok {
-
-					// check if the subpath is identical
-					if newSubPath != seenSubPath {
-						// if it is different, we have multiple unique traversals from one node, so adjust the new key and send the window
-						window.StringifiedKey = fmt.Sprintf("g%dn%do%dp%d", window.GraphID, window.Node, window.OffSet, window.Ref)
-					} else {
-						// if it is identical, we don't need another sketch from the same subpath
-						continue
-					}
-				} else {
-					keyChecker[window.StringifiedKey] = newSubPath
-				}
+				window.StringifiedKey = fmt.Sprintf("g%dn%do%dp%d", window.GraphID, window.Node, window.OffSet, window.Ref)
 
 				// send the windows for this graph onto the next process
 				proc.output <- window
 			}
 			// this graph is sketched, now send it on to be saved in the current process
 			graphChan <- grootGraph
+			wg.Done()
 		}(newGraph)
 	}
 	go func() {
@@ -137,7 +123,7 @@ func (proc *GraphSketcher) Run() {
 	}
 	log.Printf("\tnumber of groot graphs built: %d", len(graphStore))
 	// save them
-	misc.ErrorCheck(graphStore.Dump(proc.info.IndexDir + "/index.graph"))
+	misc.ErrorCheck(graphStore.Dump(proc.info.Index.IndexDir + "/index.graph"))
 	log.Printf("\tsaved groot graphs")
 
 }
@@ -161,7 +147,7 @@ func (proc *SketchIndexer) Connect(previous *GraphSketcher) {
 // Run is the method to run this process, which satisfies the pipeline interface
 func (proc *SketchIndexer) Run() {
 	// get the index ready
-	index := lshforest.NewLSHforest(proc.info.SketchSize, proc.info.JSthresh)
+	index := lshforest.NewLSHforest(proc.info.Index.SketchSize, proc.info.Index.JSthresh)
 	sketchCount := 0
 	for window := range proc.input {
 		sketchCount++
@@ -172,6 +158,7 @@ func (proc *SketchIndexer) Run() {
 	log.Printf("\tnumber of hash functions per bucket: %d\n", numHF)
 	log.Printf("\tnumber of buckets: %d\n", numBucks)
 	log.Printf("\tnumber of sketches added: %d\n", sketchCount)
-	misc.ErrorCheck(index.Dump(proc.info.IndexDir + "/index.sketches"))
+	misc.ErrorCheck(index.Dump(proc.info.Index.IndexDir + "/index.sketches"))
 	log.Printf("\tsaved the sketches")
+
 }

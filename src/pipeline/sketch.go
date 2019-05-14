@@ -97,7 +97,7 @@ func (proc *FastqHandler) Connect(previous *DataStreamer) {
 func (proc *FastqHandler) Run() {
 	defer close(proc.output)
 	var l1, l2, l3, l4 []byte
-	if proc.info.Fasta {
+	if proc.info.Sketch.Fasta {
 		for line := range proc.input {
 			if len(line) == 0 {
 				break
@@ -169,11 +169,9 @@ func (proc *FastqChecker) Connect(previous *FastqHandler) {
 }
 
 // Run is the method to run this process, which satisfies the pipeline interface
-// TODO: I've remove the QC bits for now
+// TODO: I've removed the QC bits for now
 func (proc *FastqChecker) Run() {
-	defer close(proc.output)
 	log.Printf("now streaming reads...")
-	var wg sync.WaitGroup
 	// count the number of reads and their lengths as we go
 	rawCount, lengthTotal := 0, 0
 	for read := range proc.input {
@@ -183,7 +181,6 @@ func (proc *FastqChecker) Run() {
 		// send the read onwards for mapping
 		proc.output <- read
 	}
-	wg.Wait()
 	// check we have received reads & print stats
 	if rawCount == 0 {
 		misc.ErrorCheck(errors.New("no fastq reads received"))
@@ -191,147 +188,122 @@ func (proc *FastqChecker) Run() {
 	log.Printf("\tnumber of reads received from input: %d\n", rawCount)
 	meanRL := float64(lengthTotal) / float64(rawCount)
 	log.Printf("\tmean read length: %.0f\n", meanRL)
-	// check the length is within +/-10 bases of the graph window
-	//if meanRL < float64(proc.info.WindowSize-10) || meanRL > float64(proc.info.WindowSize+10) {
-	//	misc.ErrorCheck(fmt.Errorf("mean read length is outside the graph window size (+/- 10 bases)"))
-	//}
+	close(proc.output)
 }
 
-// DbQuerier is a pipeline process to query the LSH database, map reads and project alignments onto graphs
-type DbQuerier struct {
-	info   *Info
-	input  chan *seqio.FASTQread
-	output chan *graph.GrootGraph
+// ReadMapper is a pipeline process to query the LSH database, map reads and project alignments onto graphs
+type ReadMapper struct {
+	info      *Info
+	input     chan *seqio.FASTQread
+	output    chan *graph.GrootGraph
+	readStats [3]int // corresponds to num. reads, total num. mapped, num. multimapped
 }
 
 // NewDbQuerier is the constructor
-func NewDbQuerier(info *Info) *DbQuerier {
-	return &DbQuerier{info: info, output: make(chan *graph.GrootGraph)}
+func NewDbQuerier(info *Info) *ReadMapper {
+	return &ReadMapper{info: info, output: make(chan *graph.GrootGraph), readStats: [3]int{0, 0, 0}}
 }
 
 // Connect is the method to join the input of this process with the output of FastqChecker
-func (proc *DbQuerier) Connect(previous *FastqChecker) {
+func (proc *ReadMapper) Connect(previous *FastqChecker) {
 	proc.input = previous.output
 }
 
+// CollectReadStats is a method to return the number of reads processed, how many mapped and the number of multimaps
+func (proc *ReadMapper) CollectReadStats() [3]int {
+	return proc.readStats
+}
+
 // Run is the method to run this process, which satisfies the pipeline interface
-func (proc *DbQuerier) Run() {
+func (proc *ReadMapper) Run() {
 	defer close(proc.output)
 	// if requested, set up a bloom filter to prevent unique k-mers being included in sketches
 	var bf *minhash.BloomFilter
-	if proc.info.BloomFilter {
+	if proc.info.Sketch.BloomFilter {
 		bf = minhash.NewDefaultBloomFilter()
 	}
-	// record the number of reads processed by the DbQuerier
-	readTally, mappedTally, multiMappedTally := 0, 0, 0
 	var wg sync.WaitGroup
 	collectionChan := make(chan *seqio.FASTQread)
 	for read := range proc.input {
+		// increment the read counter
+		proc.readStats[0]++
 
-		// if the read is longer than the window size + X bases, shred the read before sending it to be mapped
-		// TODO: this was just a quick test (which worked) - now let's make it nicer
-		if len(read.Seq) > (proc.info.WindowSize + 10) {
-			for i := 0; i < (len(read.Seq)-proc.info.WindowSize)-1; i++ {
-				shred := seqio.Sequence{
-					ID:  read.ID,
-					Seq: read.Seq[i : i+proc.info.WindowSize],
-				}
-				readChunk := &seqio.FASTQread{Sequence: shred}
-				wg.Add(1)
-				go func(read *seqio.FASTQread) {
-					defer wg.Done()
-					mapped := false
-					// get sketch for read
-					readSketch, err := read.RunMinHash(proc.info.KmerSize, proc.info.SketchSize, proc.info.KMVsketch, bf)
-					misc.ErrorCheck(err)
-					// query the LSH forest
-					for _, result := range proc.info.Db.Query(readSketch) {
-						mapped = true
-						// convert the stringified db match for this mapping to the constituent parts (graph, node, offset)
-						alignment, err := proc.info.Db.GetKey(result)
-						misc.ErrorCheck(err)
+		// map each read within a go routine
+		wg.Add(1)
+		go func(r *seqio.FASTQread) {
+			mapped := false
 
-						// attach the mapping info to the read
-						read.Alignments = append(read.Alignments, alignment)
-						// project the sketch of this read onto the graph and increment the k-mer count for each segment in the projection's subpaths
-						// this also updates the segment coverage information, using a bit vector to indicate when a base is covered
-						misc.ErrorCheck(proc.info.GraphStore[alignment.GraphID].IncrementSubPath(alignment.SubPath, alignment.OffSet, len(read.Seq), proc.info.KmerSize))
+			// get sketch for read
+			readSketch, err := r.RunMinHash(proc.info.Index.KmerSize, proc.info.Index.SketchSize, proc.info.Index.KMVsketch, bf)
+			misc.ErrorCheck(err)
+			// query the LSH forest
+			for _, result := range proc.info.Db.Query(readSketch) {
+				mapped = true
 
-					}
-					if mapped == true {
-						collectionChan <- read
-					}
-				}(readChunk)
+				// convert the stringified db match for this mapping to the constituent parts (graph, node, offset)
+				alignment, err := proc.info.Db.GetKey(result)
+				misc.ErrorCheck(err)
+
+				// attach the mapping info to the read
+				r.Alignments = append(r.Alignments, alignment)
+
+				// project the sketch of this read onto the graph and increment the k-mer count for each segment in the projection's subpaths
+				// this also updates the segment coverage information, using a bit vector to indicate when a base is covered
+				misc.ErrorCheck(proc.info.Store[alignment.GraphID].IncrementSubPath(alignment.SubPath, alignment.OffSet, len(r.Seq), proc.info.Index.KmerSize))
 
 			}
-
-		} else {
-
-			wg.Add(1)
-			go func(read *seqio.FASTQread) {
-				defer wg.Done()
-				mapped := false
-				// get sketch for read
-				readSketch, err := read.RunMinHash(proc.info.KmerSize, proc.info.SketchSize, proc.info.KMVsketch, bf)
-				misc.ErrorCheck(err)
-				// query the LSH forest
-				for _, result := range proc.info.Db.Query(readSketch) {
-					mapped = true
-					// convert the stringified db match for this mapping to the constituent parts (graph, node, offset)
-					alignment, err := proc.info.Db.GetKey(result)
-					misc.ErrorCheck(err)
-
-					// attach the mapping info to the read
-					read.Alignments = append(read.Alignments, alignment)
-					// project the sketch of this read onto the graph and increment the k-mer count for each segment in the projection's subpaths
-					// this also updates the segment coverage information, using a bit vector to indicate when a base is covered
-					misc.ErrorCheck(proc.info.GraphStore[alignment.GraphID].IncrementSubPath(alignment.SubPath, alignment.OffSet, len(read.Seq), proc.info.KmerSize))
-
-				}
-				if mapped == true {
-					collectionChan <- read
-				}
-			}(read)
-
-		}
-
-		readTally++
+			if mapped == true {
+				collectionChan <- r
+			}
+			wg.Done()
+		}(read)
 	}
+
 	// close the channel once all the queries are done
 	go func() {
 		wg.Wait()
 		close(collectionChan)
 	}()
+
 	// collect the mapped reads
 	for mappedRead := range collectionChan {
-		mappedTally++
+
+		// increment the mapped read counter
+		proc.readStats[1]++
+
+		// check for multimaps and increment the counter
 		if len(mappedRead.Alignments) > 1 {
-			multiMappedTally++
+			proc.readStats[2]++
 		}
 	}
+
 	// log some stuff
-	if readTally == 0 {
+	if proc.readStats[0] == 0 {
 		misc.ErrorCheck(fmt.Errorf("no reads passed quality-based trimming"))
 	} else {
-		log.Printf("\tnumber of reads received for alignment post QC: %d\n", readTally)
+		log.Printf("\tnumber of reads sketched: %d\n", proc.readStats[0])
+
 	}
-	if mappedTally == 0 {
-		misc.ErrorCheck(fmt.Errorf("no reads could be seeded against the reference graphs"))
+	if proc.readStats[1] == 0 {
+		misc.ErrorCheck(fmt.Errorf("no reads could be mapped to the reference graphs"))
 	} else {
-		log.Printf("\ttotal number of mapped reads: %d\n", mappedTally)
-		log.Printf("\t\tuniquely mapped: %d\n", (mappedTally - multiMappedTally))
-		log.Printf("\t\tmultimapped: %d\n", multiMappedTally)
+		log.Printf("\ttotal number of mapped reads: %d\n", proc.readStats[1])
+		log.Printf("\t\tuniquely mapped: %d\n", (proc.readStats[1] - proc.readStats[2]))
+		log.Printf("\t\tmultimapped: %d\n", proc.readStats[2])
 	}
 	// send on the graphs now that the mapping is done
-	for _, g := range proc.info.GraphStore {
+	for _, g := range proc.info.Store {
+		proc.info.Sketch.TotalKmers += g.KmerTotal
 		proc.output <- g
 	}
+	log.Printf("\tnumber of k-mers projected onto graphs: %.0f\n", proc.info.Sketch.TotalKmers)
 }
 
 // GraphPruner is a pipeline process to prune the graphs post mapping
 type GraphPruner struct {
-	info  *Info
-	input chan *graph.GrootGraph
+	info   *Info
+	input  chan *graph.GrootGraph
+	output []string
 }
 
 // NewGraphPruner is the constructor
@@ -339,9 +311,14 @@ func NewGraphPruner(info *Info) *GraphPruner {
 	return &GraphPruner{info: info}
 }
 
-// Connect is the method to join the input of this process with the output of DbQuerier
-func (proc *GraphPruner) Connect(previous *DbQuerier) {
+// Connect is the method to join the input of this process with the output of ReadMapper
+func (proc *GraphPruner) Connect(previous *ReadMapper) {
 	proc.input = previous.output
+}
+
+// CollectOutput is a method to return what paths are left post-pruning
+func (proc *GraphPruner) CollectOutput() []string {
+	return proc.output
 }
 
 // Run is the method to run this process, which satisfies the pipeline interface
@@ -356,7 +333,7 @@ func (proc *GraphPruner) Run() {
 		go func(graph *graph.GrootGraph) {
 			defer wg.Done()
 			// check for alignments and prune the graph
-			keepGraph := graph.Prune(float64(proc.info.MinKmerCoverage), proc.info.MinBaseCoverage)
+			keepGraph := graph.Prune(float64(proc.info.Sketch.MinKmerCoverage), proc.info.Sketch.MinBaseCoverage)
 
 			// check we have some graph
 			if keepGraph != false {
@@ -371,29 +348,31 @@ func (proc *GraphPruner) Run() {
 
 	// count and print some stuff
 	graphCounter := 0
-	pathCounter := 0
+	keptPaths := []string{}
 	log.Print("processing graphs...")
 	for g := range graphChan {
 		// write the graph
 		g.GrootVersion = proc.info.Version
-		fileName := fmt.Sprintf("%v/groot-graph-%d.gfa", proc.info.GraphDir, g.GraphID)
+		fileName := fmt.Sprintf("%v/groot-graph-%d.gfa", proc.info.Sketch.GraphDir, g.GraphID)
 		_, err := g.SaveGraphAsGFA(fileName)
 		misc.ErrorCheck(err)
 		graphCounter++
-		pathCounter += len(g.Paths)
 		log.Printf("\tgraph %d has %d remaining paths after weighting and pruning", g.GraphID, len(g.Paths))
 		for _, path := range g.Paths {
 			log.Printf("\t- [%v]", string(path))
+			keptPaths = append(keptPaths, string(path))
 		}
-
 	}
-
 	log.Printf("\ttotal number of graphs pruned: %d\n", counter)
 	if graphCounter == 0 {
 		log.Print("\tno graphs remaining after pruning")
 	} else {
-		log.Printf("\twriting graphs to \"./%v/\"...", proc.info.GraphDir)
+		log.Printf("writing graphs to \"./%v/\"...", proc.info.Sketch.GraphDir)
 		log.Printf("\ttotal number of graphs written to disk: %d\n", graphCounter)
-		log.Printf("\ttotal number of possible alleles found: %d\n", pathCounter)
+		log.Printf("\ttotal number of possible haplotypes found: %d\n", len(keptPaths))
+		log.Printf("updating index with sketching info from this run...\n")
+		misc.ErrorCheck(proc.info.Dump(proc.info.Index.IndexDir + "/index.info"))
+		log.Printf("\tsaved index info to \"%v/index.info\"", proc.info.Index.IndexDir)
 	}
+	proc.output = keptPaths
 }

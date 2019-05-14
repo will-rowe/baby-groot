@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/will-rowe/baby-groot/src/markov"
 	"github.com/will-rowe/gfa"
 )
 
@@ -13,8 +12,8 @@ var (
 	inputFile  = "./test.gfa"
 	inputFile2 = "./test.msa"
 	windowSize = 150
-	kmerSize      = 7
-	sketchSize    = 128
+	kmerSize   = 7
+	sketchSize = 128
 	blaB10     = []byte("ATGAAAGGATTAAAAGGGCTATTGGTTCTGGCTTTAGGCTTTACAGGACTACAGGTTTTTGGGCAACAGAACCCTGATATTAAAATTGAAAAATTAAAAGATAATTTATACGTCTATACAACCTATAATACCTTCAAAGGAACTAAATATGCGGCTAATGCGGTATATATGGTAACCGATAAAGGAGTAGTGGTTATAGACTCTCCATGGGGAGAAGATAAATTTAAAAGTTTTACAGACGAGATTTATAAAAAGCACGGAAAGAAAGTTATCATGAACATTGCAACCCACTCTCATGATGATAGAGCCGGAGGTCTTGAATATTTTGGTAAACTAGGTGCAAAAACTTATTCTACTAAAATGACAGATTCTATTTTAGCAAAAGAGAATAAGCCAAGAGCAAAGTACACTTTTGATAATAATAAATCTTTTAAAGTAGGAAAGACTGAGTTTCAGGTTTATTATCCGGGAAAAGGTCATACAGCAGATAATGTGGTTGTGTGGTTTCCTAAAGACAAAGTATTAGTAGGAGGCTGCATTGTAAAAAGTGGTGATTCGAAAGACCTTGGGTTTATTGGGGAAGCTTATGTAAACGACTGGACACAGTCCATACACAACATTCAGCAGAAATTTCCCTATGTTCAGTATGTCGTTGCAGGTCATGACGACTGGAAAGATCAAACATCAATACAACATACACTGGATTTAATCAGTGAATATCAACAAAAACAAAAGGCTTCAAATTAA")
 )
 
@@ -99,24 +98,10 @@ func TestFindMarkovPaths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	chainOrder := 7
-	chain := markov.NewChain(chainOrder)
-	err = grootGraph.BuildMarkovChain(chain)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = grootGraph.FindMarkovPaths(chain, 10, 0.02)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = grootGraph.ProcessMarkovPaths(0.9)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	_ = grootGraph
 }
 
-// test GraphStore dump/load
+// test Store dump/load
 func TestGraphStore(t *testing.T) {
 	myGFA, err := LoadGFA(inputFile)
 	if err != nil {
@@ -126,7 +111,7 @@ func TestGraphStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	graphStore := make(GraphStore)
+	graphStore := make(Store)
 	graphStore[0] = grootGraph
 	if err := graphStore.Dump("./test.grootGraph"); err != nil {
 		t.Fatal(err)
