@@ -26,7 +26,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/pkg/profile"
@@ -110,16 +109,20 @@ func runIndex() {
 	log.Printf("\tgraph window size: %d", *windowSize)
 	log.Printf("\tnumber of MSA files found: %d", len(msaList))
 
-	// record runtime info
+	// record the runtime information for the index sub command
 	info := &pipeline.Info{
-		Version:    version.VERSION,
-		IndexDir:   *outDir,
+		Version: version.VERSION,
+	}
+	ic := &pipeline.IndexCmd{
 		KmerSize:   *kmerSize,
 		SketchSize: *sketchSize,
 		KMVsketch:  *kmvSketch,
 		JSthresh:   *jsThresh,
 		WindowSize: *windowSize,
+		IndexDir:   *outDir,
 	}
+	info.Index = ic
+
 	misc.ErrorCheck(info.Dump(*outDir + "/index.info"))
 
 	// create the pipeline
@@ -141,6 +144,7 @@ func runIndex() {
 	// submit each process to the pipeline and run it
 	indexingPipeline.AddProcesses(msaConverter, graphSketcher, sketchIndexer)
 	log.Printf("\tnumber of processes added to the indexing pipeline: %d\n", indexingPipeline.GetNumProcesses())
+	log.Print("creating graphs, sketching traversals and indexing...")
 	indexingPipeline.Run()
 	log.Printf("saved index files to \"%v\"...", *outDir)
 	log.Println("finished")
@@ -148,26 +152,17 @@ func runIndex() {
 
 // indexParamCheck is a function to check user supplied parameters
 func indexParamCheck() error {
-	if *msaDir == "" {
-		misc.ErrorCheck(fmt.Errorf("no MSA directory specified - run `groot index --help` for more info on the command"))
+	log.Printf("\tdirectory containing MSA files: %v", *msaDir)
+	misc.ErrorCheck(misc.CheckDir(*msaDir))
+	// check the we have received some MSA files
+	msas, err := filepath.Glob(*msaDir + "/*.msa")
+	if err != nil {
+		return fmt.Errorf("can't find any MSAs in the supplied directory")
 	}
-	if _, err := os.Stat(*msaDir); os.IsNotExist(err) {
-		return fmt.Errorf("can't find specified MSA directory")
-	}
-	// check the we have received some MSA files TODO: could do with a better way of collecting these
-	err := filepath.Walk(*msaDir, func(path string, f os.FileInfo, err error) error {
-		// ignore dot files
-		if f.Name()[0] == 46 {
-			return nil
-		}
-		if len(strings.Split(path, ".msa")) == 2 {
-			msaList = append(msaList, path)
-		}
-		return nil
-	})
-	misc.ErrorCheck(err)
-	if len(msaList) == 0 {
-		return fmt.Errorf("no MSA files (.msa) found in the supplied directory")
+	log.Printf("\tnumber of MSA files: %d", len(msas))
+	for _, msa := range msas {
+		misc.ErrorCheck(misc.CheckFile(msa))
+		msaList = append(msaList, msa)
 	}
 	// TODO: check the supplied arguments to make sure they don't conflict with each other eg:
 	if *kmerSize > *windowSize {
