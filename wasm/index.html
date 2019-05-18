@@ -1,0 +1,160 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>Baby GROOT</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="assets/css/main.css" />
+		<noscript><link rel="stylesheet" href="assets/css/noscript.css" /></noscript>
+	</head>
+	<body class="pageMask">
+		<div id="wrapper"></div>
+		<div id="bg"><span id="fog"></span><span id="fog-2"></span></div>
+		<div id="overlay"></div>
+		<div id="main">
+
+				<!-- Header -->
+				<header id="header">
+					<!-- Logo -->
+					<object id="logo-animated" type="image/png" data="assets/css/images/baby-groot.svg">
+						<img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="logo">
+					</object>
+
+					<!-- Status bar -->
+					<div id="status"><p>starting GROOT...</p></div>
+
+					<!-- Buttons -->
+					<nav>	
+							<ul>
+								<li>
+									<label for="uploader">
+										<a class="fa fa-folder" id="opener1"></a>
+									</label>
+								</li>
+								<li>
+									<label for="uploader2">
+										<a class="fa fa-folder" id="opener2"></a>
+									</label>
+								</li>
+								<li>
+									<a id="paramIcon" class="fa fa-sliders-h trigger">
+										<span class="iconLabel"></span>
+									</a>
+								</li>								
+								<li>
+									<a class="fa fa-play" id="start"></a>
+								</li>
+							</ul>
+							<input type="file" name="file-selector" id="uploader" style="visibility: hidden;"></input>
+							<input type="file" name="file-selector2" id="uploader2" style="visibility: hidden;"></input>	
+					</nav>
+
+					<!-- Modal -->
+					<div class="modal">
+						<div class="modal-content">
+							<span class="close-button">&times;</span>
+							<ul>
+								<li>
+									<p title="parameter 1">Slider A (<output id="param1value">0</output>):</p>
+									<input type="range" min="-1" max="1" value="0" step="0.1" id="param1" name="param1slider" oninput="param1value.value = param1.value">									
+								</li>
+								<li>
+									<p title="parameter 2">Slider B (<output id="param2value">0</output>):</p>
+									<input type="range" min="-1" max="1" value="0" step="0.1" id="param2" name="param2slider" oninput="param2value.value = param2.value">									
+								</li>
+							</ul>
+							<button onclick="setParameters()">
+									<span>set these parameters!</span>
+							</button>
+						</div>
+					</div>
+
+					<!-- Results -->
+					<div id="parameterDiv" style="display:none;">
+							<div class="separator">Results:</div>
+						<div>
+							<image id="sourceImg" class="image" />
+							<image id="targetImg" class="image" />
+						</div>
+					</div>
+				</header>
+
+				<!-- Footer -->
+				<footer id="footer">
+					<a class="fa fa-power-off" id="close"></a>
+				</footer>
+			</div>
+		</div>
+
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+		<script src="assets/js/wasm_loader.js"></script>
+		<script src="assets/js/utils.js"></script>
+		<script>
+			window.ontouchmove = function() {return false;}
+			window.onorientationchange = function() {document.body.scrollTop = 0;}
+			window.onload = function() {document.body.classList.remove('pageMask');}
+			document.querySelector(".trigger").addEventListener("click", toggleModal);
+			document.querySelector(".close-button").addEventListener("click", toggleModal);
+		</script>
+		<script>
+				const go = new Go();
+
+				// memoryBytes is an Uint8Array pointing to the webassembly linear memory.
+				let memoryBytes;
+				let mod, inst, bytes;
+				let imageType;
+
+				WebAssembly.instantiateStreaming(
+					fetch("bg.wasm", {cache: 'no-cache'}), go.importObject).then((result) => {
+					mod = result.module;
+					inst = result.instance;
+					memoryBytes = new Uint8Array(inst.exports.mem.buffer);
+					run();
+				});
+				statusUpdate('status', 'GROOT is ready!');
+				async function run() {
+					await go.run(inst);
+				}
+
+				// check for the various File API support
+				if (window.File && window.FileReader && window.FileList && window.Blob) {
+					console.log("File APIs are supported !");
+					$.get('./groot-files/groot.index', function(data){
+						//data
+						console.log("got file")
+					});
+				} else {
+					statusUpdate('status', "Oh nos: file APIs are not fully supported in this browser!")
+				}
+			
+				// listen out for a file upload
+				document.getElementById("uploader").addEventListener('change', function() {
+					let reader = new FileReader();
+					reader.onload = (ev) => {
+						bytes = new Uint8Array(ev.target.result);
+						initMem1(bytes.length);
+					};
+					reader.readAsArrayBuffer(this.files[0]);
+				});
+
+
+				// listen out for a file upload
+				document.getElementById("uploader2").addEventListener('change', function() {
+					let reader = new FileReader();
+					reader.onload = (ev) => {
+						bytes = new Uint8Array(ev.target.result);
+						initMem2(bytes.length);
+					};
+					reader.readAsArrayBuffer(this.files[0]);
+				});
+
+		</script>
+		<script async src="https://www.googletagmanager.com/gtag/js?id=UA-90659329-2"></script>
+		<script>
+			window.dataLayer = window.dataLayer || [];
+			function gtag(){dataLayer.push(arguments);}
+			gtag('js', new Date());
+			gtag('config', 'UA-90659329-2');
+		</script>
+	</body>
+</html>
