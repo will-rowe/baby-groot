@@ -3,104 +3,112 @@
 package bg
 
 import (
-    "bufio"
-    "io"
-    "fmt"
-    "syscall/js"
-    "sync"
+	"fmt"
+	"syscall/js"
+	"time"
 
-    "github.com/will-rowe/baby-groot/src/pipeline"
+	"github.com/will-rowe/baby-groot/src/pipeline"
 )
 
 // setupGrootCb sets up the GROOT callback and runs GROOT when everything is set
 func (s *GrootWASM) setupGrootCb() {
 	s.grootCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		// TODO: add better pre-run checks
+		if s.ready == false {
+			s.statusUpdate("please specify input files!")
+			return nil
+		}
 
-	// check files have been loaded
-	//if s.fastq == nil {
-	//	s.statusUpdate("please specify a fastq file!")
-	//	return nil
-	//}
-	if s.info == nil {
-		s.statusUpdate("please specify an index file!")
-		return nil
-    }
-        
-	// start or stop GROOT?
-	if s.running == true {
-		s.running = false
-		s.statusUpdate("stopped GROOT!")
-           js.Global().Call("stopSpinner")
-           js.Global().Call("stopLogo")
-		return nil
-	}
-	s.running = true
-	s.statusUpdate("running GROOT...")
-	js.Global().Call("startSpinner")
-	js.Global().Call("startLogo")
-	
-	// call the method to run GROOT
-	s.runGroot()
+		// stop GROOT?
+		if s.running == true {
+			s.running = false
+			s.statusUpdate("stopped GROOT!")
+			js.Global().Call("stopSpinner")
+			js.Global().Call("stopLogo")
+			return nil
+		}
 
+		// start GROOT
+		s.running = true
+		s.statusUpdate("running GROOT...")
+		js.Global().Call("startSpinner")
+		js.Global().Call("startLogo")
+		startTime := time.Now()
+
+		// call the method to run GROOT
+		s.runGroot()
+		
+		// report any results
+		js.Global().Call("stopSpinner")
+		js.Global().Call("stopLogo")
+		s.iconUpdate("startIcon")
+		if s.results == false {
+			s.statusUpdate("no results found :(")
+		} else {
+			s.statusUpdate("GROOT finished!")
+			secs := time.Since(startTime).Seconds()
+			mins := time.Since(startTime).Minutes()
+			timer := fmt.Sprintf("%.0fmins %.0fsecs", mins, secs)
+			js.Global().Call("updateTimer", timer)
+			js.Global().Call("toggleDiv", "resultsModal")
+		}
 		return nil
 	})
 }
 
 // runGroot runs GROOT sketch and haplotype
 func (s *GrootWASM) runGroot() {
-    // set up the pipeline
-    sketchingPipeline := pipeline.NewPipeline()
-    fastqHandler := pipeline.NewFastqHandler(s.info)
-    fastqChecker := pipeline.NewFastqChecker(s.info)
-    readMapper := pipeline.NewDbQuerier(s.info)
-    graphPruner := pipeline.NewGraphPruner(s.info)
+	// set up the pipeline
+	sketchingPipeline := pipeline.NewPipeline()
+	fastqHandler := pipeline.NewFastqHandler(s.info)
+	fastqChecker := pipeline.NewFastqChecker(s.info)
+	readMapper := pipeline.NewDbQuerier(s.info)
+	graphPruner := pipeline.NewGraphPruner(s.info, true)
+	emPathFinder := pipeline.NewEMpathFinder(s.info)
+	haploParser := pipeline.NewHaplotypeParser(s.info)
 
-    // set up a channel to deliver the FASTQ data
-    inputFastqData := make(chan []byte)
+	// connect the pipeline
+	fastqHandler.ConnectChan(s.fastq)
+	fastqChecker.Connect(fastqHandler)
+	readMapper.Connect(fastqChecker)
+	graphPruner.Connect(readMapper)
+	emPathFinder.ConnectPruner(graphPruner)
+	haploParser.Connect(emPathFinder)
+	sketchingPipeline.AddProcesses(fastqHandler, fastqChecker, readMapper, graphPruner, emPathFinder, haploParser)
 
-    // connect the pipeline
-    fastqHandler.ConnectChan(inputFastqData)
-    fastqChecker.Connect(fastqHandler)
-    readMapper.Connect(fastqChecker)
-    graphPruner.Connect(readMapper)
-    sketchingPipeline.AddProcesses(fastqHandler, fastqChecker, readMapper, graphPruner)
+	// run the pipeline
+	sketchingPipeline.Run()
 
-    // feed in the data
-    reader := bufio.NewReader(&s.fastq)
-    var wg sync.WaitGroup
-    go func() {
-        wg.Add(1)
-        for {
-            line, err := reader.ReadBytes('\n')
-            if err != nil {
-                if err == io.EOF {
-                    break
-                } else {
-                    fmt.Println(err)
-                }
-            }
-            fmt.Println(string(line))
-            inputFastqData <- append([]byte(nil), line...)
-        }
-        wg.Done()
-    }()
-    go func() {
-        wg.Wait()
-        close(inputFastqData)
-    }()
+	// collect the output
+	readStats := readMapper.CollectReadStats()
+	//foundPaths := graphPruner.CollectOutput()
+	//foundHaplotypes := haploParser.CollectOutput()
 
-    sketchingPipeline.Run()
+	// print some updates
+	s.statusUpdate(fmt.Sprintf("mapped reads = %d/%d", readStats[1], readStats[0]))
 
-    // check that the right number of reads mapped
-    readStats := readMapper.CollectReadStats()
-    s.console.Call("log", "total number of test reads = ", readStats[0])
-    s.console.Call("log", "number which mapped = ", readStats[1])
-
-    // print the paths
-    foundPaths := graphPruner.CollectOutput()
-    for _, path := range foundPaths {
-        fmt.Print(path)
+	// get the results
+	s.results = false
+	for _, g := range s.info.Store {
+		paths, abundances := g.GetEMpaths()
+		if len(paths) != 0 {
+			s.results = true
+			fmt.Printf("\tgraph %d has %d called alleles after EM", g.GraphID, len(paths))
+			for i, path := range paths {
+				js.Global().Call("addResults", path, abundances[i])
+			}
+		}
 	}
+}
 
-
+func (s *GrootWASM) printSeqs() {
+	for _, g := range s.info.Store {
+		seqs, err := g.Graph2Seqs()
+		if err != nil {
+			s.statusUpdate(fmt.Sprintf("%v", err))
+		}
+		for id, seq := range seqs {
+			fmt.Printf(">%v\n%v\n", string(g.Paths[id]), string(seq))
+		}
+	}
 }

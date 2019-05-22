@@ -29,8 +29,6 @@ import (
 
 	"github.com/pkg/profile"
 	"github.com/spf13/cobra"
-	"github.com/will-rowe/baby-groot/src/graph"
-	"github.com/will-rowe/baby-groot/src/lshforest"
 	"github.com/will-rowe/baby-groot/src/misc"
 	"github.com/will-rowe/baby-groot/src/pipeline"
 	"github.com/will-rowe/baby-groot/src/version"
@@ -114,37 +112,28 @@ func runSketch() {
 	if *fasta {
 		log.Print("\tinput file format: fasta")
 	}
-	log.Print("loading index information...")
+	log.Print("loading the index...")
 	info := new(pipeline.Info)
-	misc.ErrorCheck(info.Load(*indexDir + "/index.info"))
+	misc.ErrorCheck(info.Load(*indexDir + "/groot.index"))
+	if info.Version != version.VERSION {
+		misc.ErrorCheck(fmt.Errorf("the groot index was created with a different version of groot (you are currently using version %v)", version.VERSION))
+	}
 	log.Printf("\tk-mer size: %d\n", info.Index.KmerSize)
 	log.Printf("\tsketch size: %d\n", info.Index.SketchSize)
 	log.Printf("\tJaccard similarity theshold: %0.2f\n", info.Index.JSthresh)
 	log.Printf("\twindow size used in indexing: %d\n", info.Index.WindowSize)
-	log.Print("loading the groot graphs...")
-	graphStore := make(graph.Store)
-	misc.ErrorCheck(graphStore.Load(*indexDir + "/index.graph"))
-	log.Printf("\tnumber of variation graphs: %d\n", len(graphStore))
-	log.Print("loading the MinHash sketches...")
-	database := lshforest.NewLSHforest(info.Index.SketchSize, info.Index.JSthresh)
-	misc.ErrorCheck(database.Load(*indexDir + "/index.sketches"))
-	log.Print("sorting the index...")
-	database.Index()
-	numHF, numBucks := database.Settings()
-	log.Printf("\tnumber of hash functions per bucket: %d\n", numHF)
+	log.Printf("\tnumber of variation graphs: %d\n", len(info.Store))
+	numHF, numBucks := info.Db.Settings()
+	log.Printf("\tnumber of hash functions per index bucket: %d\n", numHF)
 	log.Printf("\tnumber of buckets: %d\n", numBucks)
 
 	// add the sketch information to the existing groot runtime information
-	sc := &pipeline.SketchCmd{
+	info.Sketch = &pipeline.SketchCmd{
 		Fasta:           *fasta,
 		BloomFilter:     *bloomFilter,
 		MinKmerCoverage: *minKmerCoverage,
 		MinBaseCoverage: *minBaseCoverage,
-		GraphDir:        *graphDir,
 	}
-	info.Sketch = sc
-	info.Db = database
-	info.Store = graphStore
 
 	// create the pipeline
 	log.Printf("initialising alignment pipeline...")
@@ -156,7 +145,7 @@ func runSketch() {
 	fastqHandler := pipeline.NewFastqHandler(info)
 	fastqChecker := pipeline.NewFastqChecker(info)
 	readMapper := pipeline.NewDbQuerier(info)
-	graphPruner := pipeline.NewGraphPruner(info)
+	graphPruner := pipeline.NewGraphPruner(info, false)
 
 	// connect the pipeline processes
 	log.Printf("\tconnecting data streams")
@@ -170,6 +159,17 @@ func runSketch() {
 	alignmentPipeline.AddProcesses(dataStream, fastqHandler, fastqChecker, readMapper, graphPruner)
 	log.Printf("\tnumber of processes added to the alignment pipeline: %d\n", alignmentPipeline.GetNumProcesses())
 	alignmentPipeline.Run()
+	if len(info.Store) != 0 {
+		log.Printf("saving graphs...\n")
+		for graphID, g := range info.Store {
+			fileName := fmt.Sprintf("%v/groot-graph-%d.gfa", *graphDir, graphID)
+			_, err := g.SaveGraphAsGFA(fileName)
+			misc.ErrorCheck(err)
+		}
+		log.Printf("updating index with sketching info from this run...\n")
+		misc.ErrorCheck(info.Dump(info.Index.IndexDir + "/groot.index"))
+		log.Printf("\tsaved index info to \"%v/groot.index\"", info.Index.IndexDir)
+	}
 	log.Println("finished")
 }
 
@@ -187,16 +187,7 @@ func alignParamCheck() error {
 	}
 	// check the index directory and files
 	misc.ErrorCheck(misc.CheckDir(*indexDir))
-	indexFiles := [3]string{"/index.graph", "/index.info", "/index.sketches"}
-	for _, indexFile := range indexFiles {
-		file := *indexDir + indexFile
-		misc.ErrorCheck(misc.CheckFile(file))
-	}
-	info := new(pipeline.Info)
-	misc.ErrorCheck(info.Load(*indexDir + "/index.info"))
-	if info.Version != version.VERSION {
-		return fmt.Errorf("the groot index was created with a different version of groot (you are currently using version %v)", version.VERSION)
-	}
+	misc.ErrorCheck(misc.CheckFile(*indexDir + "/groot.index"))
 	// setup the graphDir
 	if _, err := os.Stat(*graphDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(*graphDir, 0700); err != nil {

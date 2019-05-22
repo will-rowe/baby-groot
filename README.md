@@ -1,5 +1,7 @@
 <div align="center">
-    <img src="https://raw.githubusercontent.com/will-rowe/groot/master/paper/img/misc/groot-logo.png?raw=true?" alt="groot-logo" width="250">
+					<object type="image/png" data="wasm/assets/css/images/baby-groot.svg" width="250">
+						<img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="logo" width="250">
+					</object>
     <h3>BABY GROOT</h3>
 </div>
 

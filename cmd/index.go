@@ -113,7 +113,7 @@ func runIndex() {
 	info := &pipeline.Info{
 		Version: version.VERSION,
 	}
-	ic := &pipeline.IndexCmd{
+	info.Index = &pipeline.IndexCmd{
 		KmerSize:   *kmerSize,
 		SketchSize: *sketchSize,
 		KMVsketch:  *kmvSketch,
@@ -121,9 +121,6 @@ func runIndex() {
 		WindowSize: *windowSize,
 		IndexDir:   *outDir,
 	}
-	info.Index = ic
-
-	misc.ErrorCheck(info.Dump(*outDir + "/index.info"))
 
 	// create the pipeline
 	log.Printf("initialising indexing pipeline...")
@@ -146,7 +143,8 @@ func runIndex() {
 	log.Printf("\tnumber of processes added to the indexing pipeline: %d\n", indexingPipeline.GetNumProcesses())
 	log.Print("creating graphs, sketching traversals and indexing...")
 	indexingPipeline.Run()
-	log.Printf("saved index files to \"%v\"...", *outDir)
+	log.Printf("saving index files to \"%v/groot.index\"...", *outDir)
+	misc.ErrorCheck(info.Dump(*outDir + "/groot.index"))
 	log.Println("finished")
 }
 

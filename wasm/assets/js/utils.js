@@ -1,22 +1,22 @@
-// gotMem sets the webassembly linear memory with the image buffer result at the slice header pointer passed from Go
-function gotMem1(pointer) {
-	memoryBytes.set(bytes, pointer);
-	// load the file
-	loadFastq();
+// a selection of JS functions for running the GROOT WASM port
+
+// getElementById
+function $id(id) {
+	return document.getElementById(id);
 }
 
 // gotMem sets the webassembly linear memory with the image buffer result at the slice header pointer passed from Go
-function gotMem2(pointer) {
+function gotMem(pointer) {
 	memoryBytes.set(bytes, pointer);
-	// load the file
-	loadIndex();
 }
 
-// displayImage takes the pointer to the target image in the wasm linear memory and its length. Gets the resulting byte slice and creates an image blob.
-function displayImage(pointer, length) {
-	let resultBytes = memoryBytes.slice(pointer, pointer + length);
-	let blob = new Blob([resultBytes], {'type': imageType});
-	document.getElementById('targetImg').src = URL.createObjectURL(blob);
+function toggleDiv(id) {
+    var el = document.getElementById(id);
+    if (el.style.display === "block") {
+        el.style.display = "none";
+    } else {
+        el.style.display = "block";
+    }
 }
 
 function statusUpdate(elementID, msg) {
@@ -37,22 +37,8 @@ function iconUpdate(id) {
     });
 }
 
-function toggleDiv(divID) {
-    var el = document.getElementById(divID);
-    if (el.style.display === "none") {
-      el.style.display = "block";
-    } else {
-      el.style.display = "none";
-    }
-}
-
-function toggleModal() {
-    document.querySelector(".modal").classList.toggle("show-modal");
-}
-
 function setParameters() {
     iconUpdate("paramIcon")
-    toggleModal()
     statusUpdate("status", "parameters are set")
 }
 
@@ -71,7 +57,7 @@ function stopSpinner() {
     $(el).stop().fadeOut(500, function() {
         el.className = '';
         el.classList.add('fa', 'fa-play');
-        el.style.color = '#FFF';
+        el.style.color = '#E9DBC5';
         $(el, this).fadeIn(500);
     });
 }
@@ -95,3 +81,36 @@ function stopLogo() {
     l2.classList.remove('growing');
     l3.classList.remove('growing');
 }
+
+function addResults(ref, abun) {
+    $("#resultsContent").append("<tr><td>" + ref + "</td><td>" + abun + "</td></tr>");
+}
+
+function updateTimer(elapsedTime) {
+    $("#runTime").append("<sub style='color:black;'>time elapsed: " + elapsedTime + "</sub>");
+}
+
+$('#uploader1').bind('change', function () {
+    var filename = $("#uploader1").val();
+    if (/^\s*$/.test(filename)) {
+      $("#fastqSelecter").removeClass('active');
+      $("#noFile").text("No file chosen..."); 
+    }
+    else {
+      $("#fastqSelecter").addClass('active');
+      $("#noFile").text(filename.replace("C:\\fakepath\\", "")); 
+    }
+  });
+  
+
+$('#uploader2').bind('change', function () {
+    var filename = $("#uploader2").val();
+    if (/^\s*$/.test(filename)) {
+      $("#indexSelecter").removeClass('active');
+      $("#noIndexFile").text("No file chosen..."); 
+    }
+    else {
+      $("#indexSelecter").addClass('active');
+      $("#noIndexFile").text(filename.replace("C:\\fakepath\\", "")); 
+    }
+  });

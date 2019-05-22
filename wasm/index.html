@@ -1,160 +1,282 @@
 <!DOCTYPE HTML>
+
 <html>
-	<head>
-		<title>Baby GROOT</title>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-		<link rel="stylesheet" href="assets/css/main.css" />
-		<noscript><link rel="stylesheet" href="assets/css/noscript.css" /></noscript>
-	</head>
-	<body class="pageMask">
-		<div id="wrapper"></div>
-		<div id="bg"><span id="fog"></span><span id="fog-2"></span></div>
-		<div id="overlay"></div>
-		<div id="main">
+<head>
+  <title>Baby GROOT</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <link rel="stylesheet" href="assets/css/main.css" type="text/css">
+</head>
 
-				<!-- Header -->
-				<header id="header">
-					<!-- Logo -->
-					<object id="logo-animated" type="image/png" data="assets/css/images/baby-groot.svg">
-						<img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="logo">
-					</object>
+<body class="pageMask">
+  <div id="wrapper"></div>
 
-					<!-- Status bar -->
-					<div id="status"><p>starting GROOT...</p></div>
+  <div class="overlay">
+      <object id="honeycomb" type="image/png" data="assets/css/images/overlay.svg"><img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="honeycomb"></object>
+  </div>
 
-					<!-- Buttons -->
-					<nav>	
-							<ul>
-								<li>
-									<label for="uploader">
-										<a class="fa fa-folder" id="opener1"></a>
-									</label>
-								</li>
-								<li>
-									<label for="uploader2">
-										<a class="fa fa-folder" id="opener2"></a>
-									</label>
-								</li>
-								<li>
-									<a id="paramIcon" class="fa fa-sliders-h trigger">
-										<span class="iconLabel"></span>
-									</a>
-								</li>								
-								<li>
-									<a class="fa fa-play" id="start"></a>
-								</li>
-							</ul>
-							<input type="file" name="file-selector" id="uploader" style="visibility: hidden;"></input>
-							<input type="file" name="file-selector2" id="uploader2" style="visibility: hidden;"></input>	
-					</nav>
+  <div id="main">
 
-					<!-- Modal -->
-					<div class="modal">
-						<div class="modal-content">
-							<span class="close-button">&times;</span>
-							<ul>
-								<li>
-									<p title="parameter 1">Slider A (<output id="param1value">0</output>):</p>
-									<input type="range" min="-1" max="1" value="0" step="0.1" id="param1" name="param1slider" oninput="param1value.value = param1.value">									
-								</li>
-								<li>
-									<p title="parameter 2">Slider B (<output id="param2value">0</output>):</p>
-									<input type="range" min="-1" max="1" value="0" step="0.1" id="param2" name="param2slider" oninput="param2value.value = param2.value">									
-								</li>
-							</ul>
-							<button onclick="setParameters()">
-									<span>set these parameters!</span>
-							</button>
-						</div>
-					</div>
+    <!-- Header -->
+    <div class="header" id="header">
 
-					<!-- Results -->
-					<div id="parameterDiv" style="display:none;">
-							<div class="separator">Results:</div>
-						<div>
-							<image id="sourceImg" class="image" />
-							<image id="targetImg" class="image" />
-						</div>
-					</div>
-				</header>
+      <!-- Logo -->
+      <div id="imgLoader" style="display: none;">
+        <object id="logo-animated" type="image/png" data="assets/css/images/baby-groot.svg">
+          <img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="logo">
+        </object>
+      </div>
 
-				<!-- Footer -->
-				<footer id="footer">
-					<a class="fa fa-power-off" id="close"></a>
-				</footer>
-			</div>
-		</div>
+      <!-- Status bar -->
+      <div id="status">
+        <p>starting GROOT...</p>
+      </div>
+      
+      <!-- Buttons -->
+      <div class="nav">
+        <ul>
+          <li><a id="inputIcon" class="fa fa-folder modal-button" href="#inputModal"></a></li>
+          <li><a id="paramIcon" class="fa fa-sliders-h modal-button" href="#parametersModal"></a></li>
+          <li><a id="startIcon" class="fa fa-play"></a></li>
+        </ul>
+      </div>
+ 
+      <!-- Input modal -->
+      <div id="inputModal" class="modal">
+        <div class="modal-content">
+          <span class="close-modal">&#215;</span>
+          <h2>Select Files</h2>
+          <sub>note: no files are actually sent anywhere!</sub>
+          <hr/>
+          <!-- FASTQ -->
+          <div class="file-upload" id="fastqSelecter">
+            <div class="file-select">
+              <div class="file-select-button" id="fastqFileName">select FASTQ file</div>
+              <div class="file-select-name" id="noFile">no file selected...</div> 
+              <input type="file" name="uploader1[]" id="uploader1" multiple="multiple"/>
+            </div>
+          </div>
+          <!-- INDEX -->
+          <div class="file-upload" id="indexSelecter">
+              <div class="file-select">
+                <div class="file-select-button" id="indexFileName">select INDEX file</div>
+                <div class="file-select-name" id="noIndexFile">no file selected...</div> 
+                <input type="file" name="uploader2" id="uploader2"/>
+              </div>
+            </div>
+          <div id="filedrag">or drop FASTQ files here...</div>
+          <hr/>
+          <button id="setInput"><span>done!</span></button>
+        </div>
+      </div>
 
-		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
-		<script src="assets/js/wasm_loader.js"></script>
-		<script src="assets/js/utils.js"></script>
-		<script>
-			window.ontouchmove = function() {return false;}
-			window.onorientationchange = function() {document.body.scrollTop = 0;}
-			window.onload = function() {document.body.classList.remove('pageMask');}
-			document.querySelector(".trigger").addEventListener("click", toggleModal);
-			document.querySelector(".close-button").addEventListener("click", toggleModal);
-		</script>
-		<script>
-				const go = new Go();
+      <!-- Parameters modal -->
+      <div id="parametersModal" class="modal">
+        <div class="modal-content">
+          <span class="close-modal">&#215;</span>
+          <ul>
+            <li>
+              <p title="parameter 1">Slider A (<output id="param1value">0</output>):</p>
+              <input type="range" min="-1" max="1" value="0" step="0.1" id="param1" name="param1slider" oninput="param1value.value = param1.value">
+            </li>
+            <li>
+              <p title="parameter 2">Slider B (<output id="param2value">0</output>):</p>
+              <input type="range" min="-1" max="1" value="0" step="0.1" id="param2" name="param2slider" oninput="param2value.value = param2.value">
+            </li>
+          </ul>
+          <button onclick="setParameters()"><span>set these parameters!</span></button>
+        </div>
+      </div>
+      
+      <!-- Results modal -->
+      <div id="resultsModal" class="modal">
+        <div class="modal-content">
+          <span class="close-modal">&#215;</span>
+          <h2>GROOT RESULTS:</h2>
+          <hr/>
+          <table class="results-table">
+              <thead>
+                  <tr>
+                      <th>Haplotype</th>
+                      <th>Abundance</th>
+                  </tr>
+              </thead>
+              <tbody id="resultsContent"></tbody>
+          </table>
+          <div id="runTime"></div>
+        </div>
+      </div>
 
-				// memoryBytes is an Uint8Array pointing to the webassembly linear memory.
-				let memoryBytes;
-				let mod, inst, bytes;
-				let imageType;
+      <!-- Help modal -->
+      <div id="helpModal" class="modal">
+        <div class="modal-content">
+          <span class="close-modal">&#215;</span>
+          <h2>GROOT:</h2>
+          <hr/>
 
-				WebAssembly.instantiateStreaming(
-					fetch("bg.wasm", {cache: 'no-cache'}), go.importObject).then((result) => {
-					mod = result.module;
-					inst = result.instance;
-					memoryBytes = new Uint8Array(inst.exports.mem.buffer);
-					run();
-				});
-				statusUpdate('status', 'GROOT is ready!');
-				async function run() {
-					await go.run(inst);
-				}
+          <p>
+            I AM <a>GROOT</a>!
+          </p>
 
-				// check for the various File API support
-				if (window.File && window.FileReader && window.FileList && window.Blob) {
-					console.log("File APIs are supported !");
-					$.get('./groot-files/groot.index', function(data){
-						//data
-						console.log("got file")
-					});
-				} else {
-					statusUpdate('status', "Oh nos: file APIs are not fully supported in this browser!")
-				}
-			
-				// listen out for a file upload
-				document.getElementById("uploader").addEventListener('change', function() {
-					let reader = new FileReader();
-					reader.onload = (ev) => {
-						bytes = new Uint8Array(ev.target.result);
-						initMem1(bytes.length);
-					};
-					reader.readAsArrayBuffer(this.files[0]);
-				});
+          <p>
+            An HTML scroll box is a box that adds scroll bars to the right side and bottom when the contents of the box are larger than the box dimensions. In other words, if you have a box that can fit around 50 words, and you have text of 200 words, an HTML scroll box will put scroll bars up to let you see the additional 150 words. In standard HTML that would simply push the extra text outside of the box.
 
+            Making HTML scroll is fairly easy. You just need to set the width and height of the element you want to scroll and then use the CSS overflow property to set how you want the scrolling to occur.
+            What to Do with Extra Text?
 
-				// listen out for a file upload
-				document.getElementById("uploader2").addEventListener('change', function() {
-					let reader = new FileReader();
-					reader.onload = (ev) => {
-						bytes = new Uint8Array(ev.target.result);
-						initMem2(bytes.length);
-					};
-					reader.readAsArrayBuffer(this.files[0]);
-				});
+            When you have more text than will fit in the space on your layout, you have a few options:
 
-		</script>
-		<script async src="https://www.googletagmanager.com/gtag/js?id=UA-90659329-2"></script>
-		<script>
-			window.dataLayer = window.dataLayer || [];
-			function gtag(){dataLayer.push(arguments);}
-			gtag('js', new Date());
-			gtag('config', 'UA-90659329-2');
-		</script>
-	</body>
+                Rewrite the text so that it is shorter and will fit.
+                Allow the text to flow beyond the bounds and hope the layout can flex to support it.
+                Cut off the text where it overflows.
+                Add scroll bars (usually vertical for text) so that the space scrolls to show the extra text.
+
+            The best option is typically the last option: create a scrolling text box. Then extra text can still be read, but your design is not compromised.
+
+            HTML and CSS for this would be: 
+          </p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+      <a class="fa fa-power-off" id="close"></a>
+      <a class="fa fa-redo-alt" href="javascript:history.go(0)"></a>
+      <a class="fa fa-question-circle modal-button" href="#helpModal"></a>
+    </div>
+  </div>
+  
+  <!--- External JS --->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js" type="text/javascript"></script>
+  <script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-90659329-2" type="text/javascript"></script>
+  <script src="assets/js/wasm_loader.js" type="text/javascript"></script>
+  <script src="assets/js/utils.js" type="text/javascript"></script>
+  
+  <!--- JS page prep --->
+  <script type="text/javascript">
+    window.ontouchmove = function() {return false;}
+    window.onorientationchange = function() {document.body.scrollTop = 0;}
+    window.onload = function() {
+      document.body.classList.remove("pageMask");
+      document.getElementById("imgLoader").style.display = "block";
+      if (window.File && window.FileList && window.FileReader) {
+        Init();
+      } else {
+        statusUpdate('status', 'please get a more recent browser!');
+      }
+    }
+  </script>
+
+  <!--- JS for modals --->
+  <script type="text/javascript">
+    var btn = document.querySelectorAll(".modal-button");
+    var modals = document.querySelectorAll('.modal');
+    var spans = document.getElementsByClassName("close-modal");
+    for (var i = 0; i < btn.length; i++) {
+      btn[i].onclick = function(e) {
+          e.preventDefault();
+          modal = document.querySelector(e.target.getAttribute("href"));
+          modal.style.display = "block";
+      }
+    }
+    for (var i = 0; i < spans.length; i++) {
+      spans[i].onclick = function() {
+          for (var index in modals) {
+            if (typeof modals[index].style !== 'undefined') modals[index].style.display = "none";    
+          }
+      }
+    }
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+          for (var index in modals) {
+            if (typeof modals[index].style !== 'undefined') modals[index].style.display = "none";    
+          }
+        }
+    }
+  </script>
+
+  <!--- JS for drag and drop --->
+  <script>
+    function Init() {
+      var uploader1 = $id("uploader1"), filedrag = $id("filedrag");
+      uploader1.addEventListener("change", FileSelectHandler, false);
+      var xhr = new XMLHttpRequest();
+      if (xhr.upload) {
+        // file drop
+        filedrag.addEventListener("dragover", FileDragHover, false);
+        filedrag.addEventListener("dragleave", FileDragHover, false);
+        filedrag.addEventListener("drop", FileSelectHandler, false);
+        filedrag.style.display = "block";
+      }
+    }
+    function FileDragHover(e) {
+          e.stopPropagation();
+          e.preventDefault();
+          e.target.className = (e.type == "dragover" ? "hover" : "");
+    }
+
+    function FileSelectHandler(e) {
+          // cancel event and hover styling
+          FileDragHover(e);
+          // fetch FileList object
+          var files = e.target.files || e.dataTransfer.files;
+          // process all FASTQ objects TODO: need to handle multiple files!!!
+          for (var i = 0, f; f = files[i]; i++) {
+            let reader = new FileReader();
+            reader.onload = (ev) => {
+                    bytes = new Uint8Array(ev.target.result);
+                    initMem1(bytes.length);
+            };
+            reader.readAsArrayBuffer(f);
+            // add filename to the selector bar
+            var filename = f.name;
+            if (/^\s*$/.test(filename)) {
+              $("#fastqSelecter").removeClass('active');
+              $("#noFile").text("No file chosen..."); 
+            }
+            else {
+              $("#fastqSelecter").addClass('active');
+              $("#noFile").text(filename.replace("C:\\fakepath\\", "") + ","); 
+            }
+          }
+    }
+  </script>
+
+  <!--- JS for WASM --->
+  <script type="text/javascript">
+    // memoryBytes is an Uint8Array pointing to the webassembly linear memory.
+    let memoryBytes, mod, inst, bytes;
+    const go = new Go();
+    WebAssembly.instantiateStreaming(
+            fetch("bg.wasm", {cache: 'no-cache'}), go.importObject).then((result) => {
+            mod = result.module;
+            inst = result.instance;
+            memoryBytes = new Uint8Array(inst.exports.mem.buffer);
+            run();
+    });
+    statusUpdate('status', 'GROOT is ready!');
+    async function run() {
+            await go.run(inst);
+    }
+
+    // listen out for an index file upload
+    document.getElementById("uploader2").addEventListener('change', function() {
+            let reader = new FileReader();
+            reader.onload = (ev) => {
+                    bytes = new Uint8Array(ev.target.result);
+                    initMem2(bytes.length);
+            };
+            reader.readAsArrayBuffer(this.files[0]);
+    });
+  </script>
+
+  <!--- JS for Google --->
+  <script type="text/javascript">
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-90659329-2');
+  </script>
+</body>
 </html>

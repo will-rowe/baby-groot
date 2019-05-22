@@ -100,9 +100,12 @@ func runHaplotype() {
 	log.Printf("\tmax. iterations for EM: %d", *maxIterations)
 	log.Printf("\tabundance cut off reporting haplotypes: %0.2f", *cutOff)
 	log.Printf("\tprocessors: %d", *proc)
-	log.Print("loading index information...")
+	log.Print("loading the index...")
 	info := new(pipeline.Info)
-	misc.ErrorCheck(info.Load(*indexDirectory + "/index.info"))
+	misc.ErrorCheck(info.Load(*indexDirectory + "/groot.index"))
+	if info.Version != version.VERSION {
+		misc.ErrorCheck(fmt.Errorf("the groot index was created with a different version of groot (you are currently using version %v)", version.VERSION))
+	}
 	log.Printf("\tk-mer size: %d\n", info.Index.KmerSize)
 	log.Printf("\tsketch size: %d\n", info.Index.SketchSize)
 	log.Printf("\tJaccard similarity theshold: %0.2f\n", info.Index.JSthresh)
@@ -112,16 +115,14 @@ func runHaplotype() {
 	log.Print("predicting the best paths through the graphs...")
 
 	// add the haplotype information to the existing groot runtime information
-	hc := &pipeline.HaploCmd{
+	info.Haplotype = &pipeline.HaploCmd{
 		MinIterations: *minIterations,
 		MaxIterations: *maxIterations,
 		HaploDir:      *haploDir,
 	}
-	info.Haplotype = hc
 
 	// create a graphStore
-	graphStore := make(graph.Store)
-	info.Store = graphStore
+	info.Store = make(graph.Store)
 
 	// create the pipeline
 	log.Printf("initialising haplotype pipeline...")
@@ -143,22 +144,31 @@ func runHaplotype() {
 	haplotypePipeline.AddProcesses(gfaReader, emPathFinder, haploParser)
 	log.Printf("\tnumber of processes added to the haplotype pipeline: %d\n", haplotypePipeline.GetNumProcesses())
 	haplotypePipeline.Run()
+	if len(info.Store) != 0 {
+		log.Printf("saving graphs and haplotype sequences...\n")
+		for graphID, g := range info.Store {
+			fileName := fmt.Sprintf("%v/groot-graph-%d-haplotype", *haploDir, graphID)
+			_, err := g.SaveGraphAsGFA(fileName + ".gfa")
+			misc.ErrorCheck(err)
+			seqs, err := g.Graph2Seqs()
+			misc.ErrorCheck(err)
+			fh, err := os.Create(fileName + ".fna")
+			misc.ErrorCheck(err)
+			for id, seq := range seqs {
+				fmt.Fprintf(fh, ">%v\n%v\n", string(g.Paths[id]), string(seq))
+			}
+			fh.Close()
+		}
+		log.Printf("\tsaved files to\"%v/\"", *haploDir)
+	}
+
 	log.Println("finished")
 }
 
 // haplotypeParamCheck is a function to check user supplied parameters
 func haplotypeParamCheck() error {
-	misc.ErrorCheck(misc.CheckDir(*indexDir))
-	indexFiles := [3]string{"/index.graph", "/index.info", "/index.sketches"}
-	for _, indexFile := range indexFiles {
-		file := *indexDir + indexFile
-		misc.ErrorCheck(misc.CheckFile(file))
-	}
-	info := new(pipeline.Info)
-	misc.ErrorCheck(info.Load(*indexDirectory + "/index.info"))
-	if info.Version != version.VERSION {
-		return fmt.Errorf("the groot index was created with a different version of groot (you are currently using version %v)", version.VERSION)
-	}
+	misc.ErrorCheck(misc.CheckDir(*indexDirectory))
+	misc.ErrorCheck(misc.CheckFile(*indexDirectory + "/groot.index"))
 	misc.ErrorCheck(misc.CheckDir(*graphDirectory))
 	graphs, err := filepath.Glob(*graphDirectory + "/groot-graph-*.gfa")
 	if err != nil {

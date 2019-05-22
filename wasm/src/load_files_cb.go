@@ -3,12 +3,15 @@
 package bg
 
 import (
+	"bufio"
 	"bytes"
+	"fmt"
+	"io"
 	"reflect"
+	"sync"
 	"syscall/js"
 	"unsafe"
 
-	"github.com/segmentio/objconv/msgpack"
 	"github.com/will-rowe/baby-groot/src/pipeline"
 )
 
@@ -24,7 +27,7 @@ func (s *GrootWASM) setupInitMem1Cb() {
 		hdr := (*reflect.SliceHeader)(unsafe.Pointer(&s.inBuf1))
 		ptr := uintptr(unsafe.Pointer(hdr.Data))
 		s.console.Call("log", "ptr:", ptr)
-		js.Global().Call("gotMem1", ptr)
+		js.Global().Call("gotMem", ptr)
 		return nil
 	})
 }
@@ -41,35 +44,85 @@ func (s *GrootWASM) setupInitMem2Cb() {
 		hdr := (*reflect.SliceHeader)(unsafe.Pointer(&s.inBuf2))
 		ptr := uintptr(unsafe.Pointer(hdr.Data))
 		s.console.Call("log", "ptr:", ptr)
-		js.Global().Call("gotMem2", ptr)
+		js.Global().Call("gotMem", ptr)
 		return nil
 	})
 }
 
-// setupOnFastqLoadCb is the callback to load the fastq file from the buffer
-func (s *GrootWASM) setupOnFastqLoadCb() {
-	s.onFastqLoadCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+// setupOnFileSelectionCb is the callback to load the fastq and index files
+func (s *GrootWASM) setupOnFileSelectionCb() {
+	s.fileSelectionCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+
+		// TODO: need a spinner for big files
+		js.Global().Call("toggleDiv", "inputModal")
+		s.statusUpdate("one moment please...")
+
+
+		// check for the FASTQ file
+		if len(s.inBuf1) == 0 {
+			s.statusUpdate("no FASTQ file selected!")
+			return nil
+		}
+
+		// check for the INDEX file
+		if len(s.inBuf2) == 0 {
+			s.statusUpdate("no INDEX file selected!")
+			return nil
+		}
+
+		// read the FASTQ
+		s.fastq = make(chan []byte)
+		var wg sync.WaitGroup
+		wg.Add(1)
 		var b bytes.Buffer
-		s.fastq = b
-		// how to we want to use the buffer for sending fastq to groot?
-		s.fastq.Write(s.inBuf1)
-		s.statusUpdate("fastq file selected")
-		s.iconUpdate("opener1")
-		return nil
-	})
-}
+		b.Write(s.inBuf1)
+		reader := bufio.NewReader(&b)
+		go func() {
+			for {
+				line, err := reader.ReadBytes('\n')
+				if err != nil {
+					if err == io.EOF {
+						break
+					} else {
+						s.statusUpdate(fmt.Sprintf("%v\n", err))
+					}
+				}
+				s.fastq <- append([]byte(nil), line...)
+			}
+			wg.Done()
+		}()
+		go func() {
+			wg.Wait()
+			close(s.fastq)
+		}()
 
-// setupOnIndexLoadCb is the callback to load the index from the buffer
-func (s *GrootWASM) setupOnIndexLoadCb() {
-	s.onIndexLoadCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		s.info = &pipeline.Info{}
-		msgpack.Unmarshal(s.inBuf2, s.info)
-		if len(s.info.DbDump) <= 1 {
+		// read the INDEX
+		s.info = new(pipeline.Info)
+		if err := s.info.LoadFromBytes(s.inBuf2); err != nil {
 			s.statusUpdate("does not look like a GROOT index!")
 			return nil
 		}
-		s.statusUpdate("index file selected")
-		s.iconUpdate("opener2")
+
+		/////////////////////////////////////////////////
+		// TODO: have these parameters set by the user
+		s.info.Sketch = &pipeline.SketchCmd{
+			MinKmerCoverage: 1,
+			MinBaseCoverage: 1.0,
+			BloomFilter:     false,
+			Fasta:           false,
+		}
+		s.info.Haplotype = &pipeline.HaploCmd{
+			Cutoff:        0.05,
+			MaxIterations: 10000,
+			MinIterations: 50,
+			HaploDir:      ".",
+		}
+		/////////////////////////////////////////////////
+
+
+		s.ready = true
+		s.iconUpdate("inputIcon")
+		s.statusUpdate("input is set")
 		return nil
 	})
 }

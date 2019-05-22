@@ -3,38 +3,30 @@
 package bg
 
 import (
-	"bytes"
-	"image"
-	"reflect"
 	"syscall/js"
-	"time"
-	"unsafe"
 
 	"github.com/will-rowe/baby-groot/src/pipeline"
-	"github.com/anthonynsimon/bild/imgio"
 )
 
 // GrootWASM
 type GrootWASM struct {
-	info *pipeline.Info
-	fastq bytes.Buffer
-	inBuf1                             []uint8
-	inBuf2                             []uint8
-	initMemCb           			   js.Func
-	initMem2Cb           			   js.Func
+	info  *pipeline.Info
+	fastq chan []byte
 
+	inBuf1     []uint8
+	inBuf2     []uint8
+	initMemCb  js.Func
+	initMem2Cb js.Func
 
-	outBuf                             bytes.Buffer /// delete
+	fileSelectionCb js.Func
+	grootCb       	js.Func
+	shutdownCb    	js.Func
 
-
-	onFastqLoadCb					   js.Func
-	onIndexLoadCb					   js.Func
-	grootCb                            js.Func
-	shutdownCb  					   js.Func
-
-	console 							js.Value
-	done    							chan struct{}
-	running 							bool
+	console js.Value
+	done    chan struct{}
+	ready   bool
+	running bool
+	results bool
 }
 
 // New returns a new instance of GrootWASM
@@ -54,19 +46,16 @@ func (s *GrootWASM) Start() {
 	s.setupInitMem2Cb()
 	js.Global().Set("initMem2", s.initMem2Cb)
 
-	// the call back for loading the fastq file
-	s.setupOnFastqLoadCb()
-	js.Global().Set("loadFastq", s.onFastqLoadCb)
-
-	// the call back for loading the index file
-	s.setupOnIndexLoadCb()
-	js.Global().Set("loadIndex", s.onIndexLoadCb)
-
+	// the call back for setting the input files
+	s.setupOnFileSelectionCb()
+	js.Global().Get("document").
+		Call("getElementById", "setInput").
+		Call("addEventListener", "click", s.fileSelectionCb)	
 
 	// the call back for running GROOT!
 	s.setupGrootCb()
 	js.Global().Get("document").
-		Call("getElementById", "start").
+		Call("getElementById", "startIcon").
 		Call("addEventListener", "click", s.grootCb)
 
 	// the call back for shutting down the app
@@ -77,8 +66,7 @@ func (s *GrootWASM) Start() {
 
 	<-s.done
 	s.statusUpdate("Shutting down GROOT app...")
-	s.onFastqLoadCb.Release()
-	s.onIndexLoadCb.Release()
+	s.fileSelectionCb.Release()
 	s.grootCb.Release()
 	s.shutdownCb.Release()
 	s.statusUpdate("GROOT has shut the app down!")
@@ -101,23 +89,4 @@ func (s *GrootWASM) statusUpdate(msg string) {
 // iconUpdate calls the iconUpdate javascript function, which changes an icon to a tick
 func (s *GrootWASM) iconUpdate(icon string) {
 	js.Global().Call("iconUpdate", icon)
-}
-
-
-// updateImage writes the image to a byte buffer and then converts it to base64.
-// Then it sets the value to the src attribute of the target image.
-func (s *GrootWASM) updateImage(img *image.RGBA, start time.Time) {
-	enc := imgio.JPEGEncoder(90)
-	err := enc(&s.outBuf, img)
-	if err != nil {
-		s.statusUpdate(err.Error())
-		return
-	}
-
-	out := s.outBuf.Bytes()
-	hdr := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-	ptr := uintptr(unsafe.Pointer(hdr.Data))
-	js.Global().Call("displayImage", ptr, len(out))
-	s.console.Call("statusUpdate", "time taken:", time.Now().Sub(start).String())
-	s.outBuf.Reset()
 }
