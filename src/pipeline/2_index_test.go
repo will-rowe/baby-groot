@@ -8,7 +8,7 @@ func TestIndexBuild(t *testing.T) {
 	if err := setupTmpDir(); err != nil {
 		t.Fatal(err)
 	}
-	if err := testParameters.Dump("test-data/tmp/index.info"); err != nil {
+	if err := testParameters.Dump("test-data/tmp/groot.index"); err != nil {
 		t.Fatal(err)
 	}
 	indexingPipeline := NewPipeline()
@@ -29,6 +29,9 @@ func TestIndexBuild(t *testing.T) {
 		t.Fatal("wrong number of processes in pipeline")
 	}
 	indexingPipeline.Run()
+	if err := testParameters.Dump("test-data/tmp/groot.index"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // benchmark indexing

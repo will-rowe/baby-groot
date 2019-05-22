@@ -60,11 +60,12 @@ func (Pipeline *Pipeline) GetNumProcesses() int {
 // Info stores the runtime information
 type Info struct {
 	Version   string
-	Store     graph.Store
-	Db        *lshforest.LSHforest
 	Index     *IndexCmd
 	Sketch    *SketchCmd
 	Haplotype *HaploCmd
+	Db        *lshforest.LSHforest
+	DbDump    []byte
+	Store     graph.Store
 }
 
 // IndexCmd stores the runtime info for the index command
@@ -83,7 +84,6 @@ type SketchCmd struct {
 	BloomFilter     bool
 	MinKmerCoverage int
 	MinBaseCoverage float64
-	GraphDir        string
 	TotalKmers      float64
 }
 
@@ -95,9 +95,18 @@ type HaploCmd struct {
 	HaploDir      string
 }
 
-// Dump is a method to dump the Info to file
+// Dump is a method to dump the pipeline info to file
 func (Info *Info) Dump(path string) error {
-	b, err := msgpack.Marshal(Info)
+	// get the lshForest dump
+	b, err := msgpack.Marshal(Info.Db)
+	if err != nil {
+		return err
+	}
+	Info.DbDump = b
+	Info.Db = nil
+
+	// marshal the data
+	b, err = msgpack.Marshal(Info)
 	if err != nil {
 		return err
 	}
@@ -106,9 +115,21 @@ func (Info *Info) Dump(path string) error {
 
 // Load is a method to load Info from file
 func (Info *Info) Load(path string) error {
-	b, err := ioutil.ReadFile(path)
+	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	return msgpack.Unmarshal(b, Info)
+	return Info.LoadFromBytes(data)
+}
+
+// LoadFromBytes is a method to load Info from a msgPack strean
+func (Info *Info) LoadFromBytes(data []byte) error {
+	err := msgpack.Unmarshal(data, Info)
+	if err != nil {
+		return err
+	}
+	Info.Db = lshforest.NewLSHforest(Info.Index.SketchSize, Info.Index.JSthresh)
+	err = Info.Db.Load(Info.DbDump)
+	Info.DbDump = nil
+	return err
 }

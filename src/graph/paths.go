@@ -82,6 +82,7 @@ func (GrootGraph *GrootGraph) ProcessEMpaths(cutoff, totalKmers float64) error {
 		rho[i] = GrootGraph.alpha[i] / pathsTotal
 	}
 	// rank EM paths, apply cutoff and store
+	GrootGraph.abundances = make(map[int]float64)
 	for i, val := range rho {
 		kmerShare := (val * GrootGraph.KmerTotal) / totalKmers
 		// delete any path not meeting the supplied cutoff
@@ -94,13 +95,15 @@ func (GrootGraph *GrootGraph) ProcessEMpaths(cutoff, totalKmers float64) error {
 	return nil
 }
 
-// PrintEMpaths is a method to print the paths
-func (GrootGraph *GrootGraph) PrintEMpaths() []string {
+// GetEMpaths is a method to print the paths and abundance values
+func (GrootGraph *GrootGraph) GetEMpaths() ([]string, []float64) {
 	paths := make([]string, len(GrootGraph.grootPaths))
+	vals := make([]float64, len(GrootGraph.grootPaths))
 	for i, path := range GrootGraph.grootPaths {
-		paths[i] = fmt.Sprintf("%v\t%0.2f", string(path.name), path.abundance)
+		paths[i] = string(path.name)
+		vals[i] = path.abundance
 	}
-	return paths
+	return paths, vals
 }
 
 /*

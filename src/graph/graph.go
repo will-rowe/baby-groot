@@ -37,7 +37,6 @@ func CreateGrootGraph(gfaInstance *gfa.GFA, id int) (*GrootGraph, error) {
 		Paths:      make(map[int][]byte),
 		Lengths:    make(map[int]int),
 		NodeLookup: make(map[uint64]int),
-		abundances: make(map[int]float64),
 	}
 	// collect all the segments from the GFA instance and create the nodes
 	segments, err := gfaInstance.GetSegments()
@@ -48,7 +47,6 @@ func CreateGrootGraph(gfaInstance *gfa.GFA, id int) (*GrootGraph, error) {
 		// check the segment name can be stored as an int
 
 		// TODO: will fix the handling of segmentIDs between GFA and GROOT -- need to use uint64
-
 		segID, err := strconv.Atoi(string(segment.Name))
 		if err != nil {
 			return nil, fmt.Errorf("could not convert segment name from GFA into an int for groot graph: %v", segment.Name)
@@ -87,11 +85,11 @@ func CreateGrootGraph(gfaInstance *gfa.GFA, id int) (*GrootGraph, error) {
 		// get the from and to segment IDs
 		fromSegID, err := strconv.Atoi(string(link.From))
 		if err != nil {
-			return nil, fmt.Errorf("could not convert segment name from GFA into an int for groot graph: %v", link.From)
+			return nil, fmt.Errorf("could not convert fromSegID name from GFA into an int for groot graph: %v", link.From)
 		}
 		toSegID, err := strconv.Atoi(string(link.To))
 		if err != nil {
-			return nil, fmt.Errorf("could not convert segment name from GFA into an int for groot graph: %v", link.To)
+			return nil, fmt.Errorf("could not convert toSegID name from GFA into an int for groot graph: %v", link.To)
 		}
 		// add the outEdges
 		nodeLocator := newGraph.NodeLookup[uint64(fromSegID)]
@@ -110,7 +108,7 @@ func CreateGrootGraph(gfaInstance *gfa.GFA, id int) (*GrootGraph, error) {
 			seg = bytes.TrimSuffix(seg, []byte("+"))
 			segID, err := strconv.Atoi(string(seg))
 			if err != nil {
-				return nil, fmt.Errorf("could not convert segment name from GFA into an int for groot graph: %v", string(seg))
+				return nil, fmt.Errorf("could not convert segment name from GFA path into an int for groot graph: %v\n%v", string(seg), string(path.PathName))
 			}
 			nodeLocator := newGraph.NodeLookup[uint64(segID)]
 			newGraph.SortedNodes[nodeLocator].PathIDs = append(newGraph.SortedNodes[nodeLocator].PathIDs, pathIterator)
@@ -463,11 +461,12 @@ func (GrootGraph *GrootGraph) Prune(minKmerCoverage, minBaseCoverage float64) bo
 		}
 		node.OutEdges = updatedEdges
 	}
-	// remove the pruned paths and their lengths from the graph metadata
+
+	// if a path was removed by pruning, set it's length to 0
 	for id := range removePathID {
 		if _, path := GrootGraph.Paths[id]; path {
-			delete(GrootGraph.Paths, id)
-			delete(GrootGraph.Lengths, id)
+			//delete(GrootGraph.Paths, id)
+			GrootGraph.Lengths[id] = 0
 		}
 	}
 	return true
@@ -504,6 +503,10 @@ func (GrootGraph *GrootGraph) GetStartNodes() ([]uint64, error) {
 // RemoveDeadPaths is a method to remove pathIDs from nodes if the path is no longer present in the graph
 func (GrootGraph *GrootGraph) RemoveDeadPaths() error {
 	for _, node := range GrootGraph.SortedNodes {
+		// if the graph has been pruned, some nodes will have been set to nil
+		if node == nil {
+			continue
+		}
 		updatedPathIDs := []int{}
 		for _, pathID := range node.PathIDs {
 			if _, ok := GrootGraph.Paths[pathID]; ok {
@@ -520,9 +523,16 @@ func (GrootGraph *GrootGraph) GetPaths() error {
 	if len(GrootGraph.Paths) == 0 {
 		return fmt.Errorf("no paths recorded in current graph")
 	}
+	if GrootGraph.abundances == nil {
+		GrootGraph.abundances = make(map[int]float64)
+	}
 	GrootGraph.grootPaths = make(grootGraphPaths, len(GrootGraph.Paths))
 	counter := 0
 	for pathID, pathName := range GrootGraph.Paths {
+		// ignore paths that have been pruned (indicated by a length of 0)
+		//if GrootGraph.Lengths[pathID] == 0 {
+		//	continue
+		//}
 		segIDs := []uint64{}
 		segSeqs := [][]byte{}
 		for _, node := range GrootGraph.SortedNodes {
@@ -537,6 +547,9 @@ func (GrootGraph *GrootGraph) GetPaths() error {
 					segSeqs = append(segSeqs, node.Sequence)
 				}
 			}
+		}
+		if _, ok := GrootGraph.abundances[pathID]; !ok {
+			GrootGraph.abundances[pathID] = 0.0
 		}
 
 		// store this path

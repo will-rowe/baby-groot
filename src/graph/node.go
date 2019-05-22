@@ -57,8 +57,8 @@ func (GrootGraphNode *GrootGraphNode) AddCoverage(start, numberOfBases int) {
 		numberOfBases = len(GrootGraphNode.Sequence)
 	}
 	GrootGraphNode.nodeLock.Lock()
-	defer GrootGraphNode.nodeLock.Unlock()
 	for i := start; i < numberOfBases; i++ {
 		GrootGraphNode.Coverage.Add(i)
 	}
+	GrootGraphNode.nodeLock.Unlock()
 }

@@ -1,4 +1,4 @@
-// contains types and methods for working with bit vectors
+// Package bitvector contains types and methods for working with bit vectors
 package bitvector
 
 import (
@@ -9,7 +9,7 @@ import (
 // MAX_SIZE is calculated at compile time
 var MAX_SIZE = maxSize()
 
-// PC64[i] is the population count of i - this is used for the popcount algorithm
+// PC64 is used to determine population count, e.g. PC64[i] is the population count of i
 var PC64 = pc64()
 
 // BitVector is the base type
@@ -61,19 +61,27 @@ func (BitVector BitVector) BWAND(bv2 BitVector) (BitVector, error) {
 
 // PopCount is a method to report the number of flipped bits in the bit vector (using the population count algorithm)
 func (BitVector BitVector) PopCount() int {
-	if MAX_SIZE != 64 {
-		panic("I need to extend popcount to work beyond int64")
-	}
 	count := 0
-	for i := 0; i < len(BitVector); i++ {
-		count += int(PC64[byte(BitVector[i]>>(0*8))] +
-			PC64[byte(BitVector[i]>>(1*8))] +
-			PC64[byte(BitVector[i]>>(2*8))] +
-			PC64[byte(BitVector[i]>>(3*8))] +
-			PC64[byte(BitVector[i]>>(4*8))] +
-			PC64[byte(BitVector[i]>>(5*8))] +
-			PC64[byte(BitVector[i]>>(6*8))] +
-			PC64[byte(BitVector[i]>>(7*8))])
+	if MAX_SIZE == 64 {
+		for i := 0; i < len(BitVector); i++ {
+			count += int(PC64[byte(BitVector[i]>>(0*8))] +
+				PC64[byte(BitVector[i]>>(1*8))] +
+				PC64[byte(BitVector[i]>>(2*8))] +
+				PC64[byte(BitVector[i]>>(3*8))] +
+				PC64[byte(BitVector[i]>>(4*8))] +
+				PC64[byte(BitVector[i]>>(5*8))] +
+				PC64[byte(BitVector[i]>>(6*8))] +
+				PC64[byte(BitVector[i]>>(7*8))])
+		}
+	} else if MAX_SIZE == 32 {
+		for i := 0; i < len(BitVector); i++ {
+			count += int(PC64[byte(BitVector[i]>>(0*8))] +
+				PC64[byte(BitVector[i]>>(1*8))] +
+				PC64[byte(BitVector[i]>>(2*8))] +
+				PC64[byte(BitVector[i]>>(3*8))])
+		}
+	} else {
+		panic("I need to extend popcount to work beyond int64")
 	}
 	return count
 }
@@ -85,6 +93,8 @@ func maxSize() int {
 	case "amd64":
 		maxSize = 64
 	case "arm64":
+		maxSize = 64
+	case "js":
 		maxSize = 64
 	default:
 		maxSize = 32

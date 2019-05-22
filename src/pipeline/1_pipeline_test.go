@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/will-rowe/hulk/src/version"
+	"github.com/will-rowe/baby-groot/src/version"
 )
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -43,7 +43,6 @@ var sketchCmd = &SketchCmd{
 	MinBaseCoverage: 1.0,
 	BloomFilter:     false,
 	Fasta:           false,
-	GraphDir:        "test-data/tmp",
 }
 
 var haploCmd = &HaploCmd{

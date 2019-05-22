@@ -4,7 +4,7 @@
 package seqio
 
 import (
-	"errors"
+	"fmt"
 	"unicode"
 
 	"github.com/will-rowe/baby-groot/src/minhash"
@@ -158,7 +158,7 @@ func NewFASTQread(l1 []byte, l2 []byte, l3 []byte, l4 []byte) (*FASTQread, error
 	//	return nil, errors.New("sequence and quality score lines are unequal lengths in fastq file")
 	//}
 	if l1[0] != 64 {
-		return nil, errors.New("read ID in fastq file does not begin with @")
+		return nil, fmt.Errorf("read ID in fastq file does not begin with @: %v", string(l1))
 	}
 	// create a FASTQread struct
 	seq := Sequence{ID: l1, Seq: l2}

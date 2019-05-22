@@ -122,10 +122,9 @@ func (proc *GraphSketcher) Run() {
 		misc.ErrorCheck(fmt.Errorf("could not create any graphs"))
 	}
 	log.Printf("\tnumber of groot graphs built: %d", len(graphStore))
-	// save them
-	misc.ErrorCheck(graphStore.Dump(proc.info.Index.IndexDir + "/index.graph"))
-	log.Printf("\tsaved groot graphs")
 
+	// add the graphs to the pipeline info
+	proc.info.Store = graphStore
 }
 
 // SketchIndexer is a pipeline process that adds sketches to the LSH Forest
@@ -158,7 +157,7 @@ func (proc *SketchIndexer) Run() {
 	log.Printf("\tnumber of hash functions per bucket: %d\n", numHF)
 	log.Printf("\tnumber of buckets: %d\n", numBucks)
 	log.Printf("\tnumber of sketches added: %d\n", sketchCount)
-	misc.ErrorCheck(index.Dump(proc.info.Index.IndexDir + "/index.sketches"))
-	log.Printf("\tsaved the sketches")
 
+	// add the index to the pipeline info
+	proc.info.Db = index
 }

@@ -5,9 +5,7 @@ package pipeline
 */
 
 import (
-	"fmt"
 	"log"
-	"os"
 	"sync"
 
 	"github.com/will-rowe/baby-groot/src/graph"
@@ -70,6 +68,11 @@ func (proc *EMpathFinder) Connect(previous *GFAreader) {
 	proc.input = previous.output
 }
 
+// ConnectPruner is the method to connect the MCMCpathFinder to the output of a GraphPruner
+func (proc *EMpathFinder) ConnectPruner(previous *GraphPruner) {
+	proc.input = previous.output
+}
+
 // Run is the method to run this process, which satisfies the pipeline interface
 func (proc *EMpathFinder) Run() {
 	var wg sync.WaitGroup
@@ -85,12 +88,15 @@ func (proc *EMpathFinder) Run() {
 		go func(g *graph.GrootGraph) {
 			defer wg.Done()
 
+			// remove dead ends
+			misc.ErrorCheck(g.RemoveDeadPaths())
+
 			// run the EM
 			err := g.RunEM()
 			misc.ErrorCheck(err)
 
 			// process the EM results
-			err = g.ProcessEMpaths(proc.info.Haplotype.Cutoff, proc.info.Sketch.TotalKmers)
+			misc.ErrorCheck(g.ProcessEMpaths(proc.info.Haplotype.Cutoff, proc.info.Sketch.TotalKmers))
 
 			// send the graph to the next process
 			proc.output <- g
@@ -175,7 +181,7 @@ func NewHaplotypeParser(info *Info) *HaplotypeParser {
 	return &HaplotypeParser{info: info}
 }
 
-// Connect is the method to connect the HaplotypeParser to the output of a MCMCpathFinder
+// Connect is the method to connect the HaplotypeParser to the output of a EMpathFinder
 func (proc *HaplotypeParser) Connect(previous *EMpathFinder) {
 	proc.input = previous.output
 }
@@ -187,55 +193,34 @@ func (proc *HaplotypeParser) CollectOutput() []string {
 
 // Run is the method to run this process, which satisfies the pipeline interface
 func (proc *HaplotypeParser) Run() {
-	counter := 0
-	counter2 := 0
 	meanEMiterations := 0
+	keptGraphs := make(graph.Store)
 	keptPaths := []string{}
 	log.Println("processing haplotypes...")
-	for graph := range proc.input {
-		meanEMiterations += graph.EMiterations
+	for g := range proc.input {
+		meanEMiterations += g.EMiterations
 
 		// check graph has some paths left
-		if len(graph.Paths) == 0 {
+		if len(g.Paths) == 0 {
 			continue
 		}
 
 		// remove dead ends
-		misc.ErrorCheck(graph.RemoveDeadPaths())
+		misc.ErrorCheck(g.RemoveDeadPaths())
 
-		// print
-		paths := graph.PrintEMpaths()
-		log.Printf("\tgraph %d has %d called alleles after EM", graph.GraphID, len(paths))
-		for _, path := range paths {
-			log.Printf("\t- [%v]", path)
+		// print some stuff
+		paths, abundances := g.GetEMpaths()
+		log.Printf("\tgraph %d has %d called alleles after EM", g.GraphID, len(paths))
+		for i, path := range paths {
+			log.Printf("\t- [%v (abundance: %.2f)]", path, abundances[i])
+			keptPaths = append(keptPaths, path)
 		}
-		counter2 += len(paths)
-
-		// write the graph
-		graph.GrootVersion = version.VERSION
-		fileName := fmt.Sprintf("%v/groot-graph-%d-haplotype.gfa", proc.info.Haplotype.HaploDir, graph.GraphID)
-		graphWritten, err := graph.SaveGraphAsGFA(fileName)
-		misc.ErrorCheck(err)
-		counter += graphWritten
-
-		// write the sequences
-		seqs, err := graph.Graph2Seqs()
-		misc.ErrorCheck(err)
-		fileName += ".fna"
-		fh, err := os.Create(fileName)
-		defer fh.Close()
-		misc.ErrorCheck(err)
-		for id, seq := range seqs {
-			fmt.Fprintf(fh, ">%v\n%v\n", string(graph.Paths[id]), string(seq))
-			keptPaths = append(keptPaths, string(graph.Paths[id]))
-		}
+		g.GrootVersion = version.VERSION
+		keptGraphs[g.GraphID] = g
 	}
-	log.Printf("\tmean number of EM iterations: %d\n", meanEMiterations/counter)
+	log.Printf("\tmean number of EM iterations: %d\n", meanEMiterations/len(keptGraphs))
+	log.Printf("\tnumber of graphs with viable paths: %d\n", len(keptGraphs))
+	log.Printf("\tnumber of haplotype sequences: %d\n", len(keptPaths))
+	proc.info.Store = keptGraphs
 	proc.output = keptPaths
-	log.Printf("saved graphs to \"./%v/\"...", proc.info.Haplotype.HaploDir)
-	log.Printf("\tnumber of graphs written to disk: %d\n", counter)
-	log.Printf("saved haplotype sequences to \"./%v/\"...", proc.info.Haplotype.HaploDir)
-	log.Printf("\tnumber of sequences written to disk: %d\n", counter2)
-	log.Println("finished")
-
 }

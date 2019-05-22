@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"fmt"
 	"os"
 	"testing"
 )
@@ -9,7 +10,7 @@ func TestHaplotyping(t *testing.T) {
 
 	// load the files from the previous tests
 	testParameters := new(Info)
-	if err := testParameters.Load("test-data/tmp/index.info"); err != nil {
+	if err := testParameters.Load("test-data/tmp/groot.index"); err != nil {
 		t.Fatal(err)
 	}
 	haplotypingPipeline := NewPipeline()
@@ -24,11 +25,36 @@ func TestHaplotyping(t *testing.T) {
 		t.Fatal("wrong number of processes in pipeline")
 	}
 	haplotypingPipeline.Run()
+	if len(testParameters.Store) != 1 {
+		t.Fatal("haplotype should have recovered 1 graph")
+	}
+
+	for graphID, g := range testParameters.Store {
+		fileName := fmt.Sprintf("test-data/tmp/groot-graph-%d-haplotype", graphID)
+		_, err := g.SaveGraphAsGFA(fileName + ".gfa")
+		if err != nil {
+			t.Fatal(err)
+		}
+		seqs, err := g.Graph2Seqs()
+		if err != nil {
+			t.Fatal(err)
+		}
+		fh, err := os.Create(fileName + ".fna")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for id, seq := range seqs {
+			fmt.Fprintf(fh, ">%v\n%v\n", string(g.Paths[id]), string(seq))
+		}
+		fh.Close()
+	}
 
 	foundPaths := haploParser.CollectOutput()
+	// this test needs improving - need to check for all the spiked in alleles
 	correctPath := false
 	for _, path := range foundPaths {
-		if path == "argannot~~~(Bla)OXA-90~~~EU547443:1-825" {
+		t.Log(path)
+		if path == "argannot~~~(Bla)OXA-90~~~EU547443:1-825	0.18" {
 			correctPath = true
 		}
 	}
@@ -37,19 +63,13 @@ func TestHaplotyping(t *testing.T) {
 	}
 
 	// remove the tmp files from all tests
-	if err := os.Remove("test-data/tmp/index.info"); err != nil {
-		t.Fatal("indexing did not create info file: ", err)
-	}
-	if err := os.Remove("test-data/tmp/index.graph"); err != nil {
-		t.Fatal("indexing did not create graph file: ", err)
-	}
-	if err := os.Remove("test-data/tmp/index.sketches"); err != nil {
-		t.Fatal("indexing did not create sketch file: ", err)
+	if err := os.Remove("test-data/tmp/groot.index"); err != nil {
+		t.Fatal("indexing did not create index file: ", err)
 	}
 	if err := os.Remove("test-data/tmp/groot-graph-0.gfa"); err != nil {
 		t.Fatal("sketching did not create graph file: ", err)
 	}
-	if err := os.Remove("test-data/tmp/groot-graph-0-haplotype.gfa.fna"); err != nil {
+	if err := os.Remove("test-data/tmp/groot-graph-0-haplotype.fna"); err != nil {
 		t.Fatal("haplotyping did not create fasta file: ", err)
 	}
 	if err := os.RemoveAll("test-data/tmp"); err != nil {

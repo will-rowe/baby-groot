@@ -3,20 +3,18 @@ package lshforest
 
 import (
 	"fmt"
-	"io/ioutil"
 	"sort"
 	"sync"
 
+	"github.com/segmentio/objconv/msgpack"
 	"github.com/will-rowe/baby-groot/src/misc"
 	"github.com/will-rowe/baby-groot/src/seqio"
-	"gopkg.in/vmihailenco/msgpack.v2"
 )
 
 // GROOTindex is the interface for the LSH index TODO: I will use this to try some more indexes at a later date
 type GROOTindex interface {
 	Add(*seqio.Key) error
 	Index()
-	Dump(string) error
 	Load(string) error
 	Query([]uint64) []string
 	GetKey(string) (*seqio.Key, error)
@@ -92,6 +90,27 @@ func (LSHforest *LSHforest) Add(key *seqio.Key) error {
 	return nil
 }
 
+// Load is a method to populate an LSH Forest instance using a byte slice from msgPack
+func (LSHforest *LSHforest) Load(data []byte) error {
+	if len(data) == 0 {
+		return fmt.Errorf("no data received for LSH Forest Load()")
+	}
+	// unpack the data
+	err := msgpack.Unmarshal(data, LSHforest)
+	if err != nil {
+		return err
+	}
+	if len(LSHforest.InitHashTables) < 1 {
+		return fmt.Errorf("could not load the LSH Forest")
+	}
+	// index the lshForest
+	LSHforest.Index()
+	if len(LSHforest.hashTables) < 1 {
+		return fmt.Errorf("could not index the LSH Forest")
+	}
+	return nil
+}
+
 // Index transfers the contents of each initialHashTable to the hashTable arrays so they can be sorted and searched
 func (LSHforest *LSHforest) Index() {
 	// iterate over the empty indexed hash tables
@@ -105,27 +124,6 @@ func (LSHforest *LSHforest) Index() {
 		// clear the initial hashtable that has just been processed
 		LSHforest.InitHashTables[i] = make(initialHashTable)
 	}
-}
-
-// Dump an LSH index to disk
-func (LSHforest *LSHforest) Dump(path string) error {
-	if len(LSHforest.hashTables[0]) != 0 {
-		return fmt.Errorf("cannot dump the LSH Forest after running the indexing method")
-	}
-	b, err := msgpack.Marshal(LSHforest)
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(path, b, 0644)
-}
-
-// Load an LSH index from disk
-func (LSHforest *LSHforest) Load(path string) error {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	return msgpack.Unmarshal(b, LSHforest)
 }
 
 // Query is the exported method for querying and returning similar sketches from the LSH forest

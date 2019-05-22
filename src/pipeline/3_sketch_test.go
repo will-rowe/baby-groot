@@ -1,39 +1,25 @@
 package pipeline
 
 import (
+	"fmt"
 	"testing"
 
-	"github.com/will-rowe/baby-groot/src/graph"
-	"github.com/will-rowe/baby-groot/src/lshforest"
+	"github.com/will-rowe/baby-groot/src/misc"
 )
 
 func TestSketching(t *testing.T) {
 	// load the files from the previous tests
 	testParameters := new(Info)
-	if err := testParameters.Load("test-data/tmp/index.info"); err != nil {
+	if err := testParameters.Load("test-data/tmp/groot.index"); err != nil {
 		t.Fatal(err)
 	}
-	graphStore := make(graph.Store)
-	if err := graphStore.Load("test-data/tmp/index.graph"); err != nil {
-		t.Fatal(err)
-	}
-	testParameters.Store = graphStore
-	if len(graphStore) != 1 {
-		t.Fatal("incorrect number of graphs loaded")
-	}
-	database := lshforest.NewLSHforest(testParameters.Index.SketchSize, testParameters.Index.JSthresh)
-	if err := database.Load("test-data/tmp/index.sketches"); err != nil {
-		t.Fatal(err)
-	}
-	database.Index()
-	testParameters.Db = database
 	// run the pipeline
 	sketchingPipeline := NewPipeline()
 	dataStream := NewDataStreamer(testParameters)
 	fastqHandler := NewFastqHandler(testParameters)
 	fastqChecker := NewFastqChecker(testParameters)
 	readMapper := NewDbQuerier(testParameters)
-	graphPruner := NewGraphPruner(testParameters)
+	graphPruner := NewGraphPruner(testParameters, false)
 	dataStream.Connect(fastq)
 	fastqHandler.Connect(dataStream)
 	fastqChecker.Connect(fastqHandler)
@@ -59,5 +45,13 @@ func TestSketching(t *testing.T) {
 	}
 	if correctPath != true {
 		t.Fatal("sketching did not identify correct allele in graph")
+	}
+	if err := testParameters.Dump("test-data/tmp/groot.index"); err != nil {
+		t.Fatal(err)
+	}
+	for graphID, g := range testParameters.Store {
+		fileName := fmt.Sprintf("test-data/tmp/groot-graph-%d.gfa", graphID)
+		_, err := g.SaveGraphAsGFA(fileName)
+		misc.ErrorCheck(err)
 	}
 }

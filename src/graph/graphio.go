@@ -3,36 +3,16 @@ package graph
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/will-rowe/baby-groot/src/version"
 	"github.com/will-rowe/gfa"
-	"gopkg.in/vmihailenco/msgpack.v2"
 )
 
 // Store stores the GROOT graphs...
 type Store map[int]*GrootGraph
-
-// Dump is a method to save a GrootGraph to file
-func (Store *Store) Dump(path string) error {
-	b, err := msgpack.Marshal(Store)
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(path, b, 0644)
-}
-
-// Load is a method to load a GrootGraph from file
-func (Store *Store) Load(path string) error {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	return msgpack.Unmarshal(b, Store)
-}
 
 // SaveGraphAsGFA is a method to convert and save a GrootGraph in GFA format
 func (GrootGraph *GrootGraph) SaveGraphAsGFA(fileName string) (int, error) {
@@ -86,6 +66,10 @@ func (GrootGraph *GrootGraph) SaveGraphAsGFA(fileName string) (int, error) {
 	}
 	// create the paths
 	for pathID, pathName := range GrootGraph.Paths {
+		// some paths won't have complete coverage, and have had their lengths set to 0 - ignore these paths
+		if GrootGraph.Lengths[pathID] == 0 {
+			continue
+		}
 		segments, overlaps := [][]byte{}, [][]byte{}
 		for _, node := range GrootGraph.SortedNodes {
 			// BABY GROOT - some nodes will be nil after pruning, ignore these

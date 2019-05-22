@@ -154,6 +154,5 @@ func (EMrunner *EMrunner) Return() (int, []float64, error) {
 	if EMrunner.iterationsRan < 1 {
 		return 0, nil, fmt.Errorf("no EM iterations were ran")
 	}
-
 	return EMrunner.iterationsRan, EMrunner.alpha, nil
 }

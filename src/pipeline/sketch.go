@@ -88,6 +88,11 @@ func NewFastqHandler(info *Info) *FastqHandler {
 	return &FastqHandler{info: info, output: make(chan *seqio.FASTQread, BUFFERSIZE)}
 }
 
+// ConnectChan is a tmp solution for WASM
+func (proc *FastqHandler) ConnectChan(inputChan chan []byte) {
+	proc.input = inputChan
+}
+
 // Connect is the method to join the input of this process with the output of a DataStreamer
 func (proc *FastqHandler) Connect(previous *DataStreamer) {
 	proc.input = previous.output
@@ -301,14 +306,16 @@ func (proc *ReadMapper) Run() {
 
 // GraphPruner is a pipeline process to prune the graphs post mapping
 type GraphPruner struct {
-	info   *Info
-	input  chan *graph.GrootGraph
-	output []string
+	info             *Info
+	input            chan *graph.GrootGraph
+	output           chan *graph.GrootGraph
+	foundPaths       []string
+	connectHaplotype bool // activate this flag if this pipeline process is connected to the EMpathFinder
 }
 
 // NewGraphPruner is the constructor
-func NewGraphPruner(info *Info) *GraphPruner {
-	return &GraphPruner{info: info}
+func NewGraphPruner(info *Info, conH bool) *GraphPruner {
+	return &GraphPruner{info: info, output: make(chan *graph.GrootGraph), connectHaplotype: conH}
 }
 
 // Connect is the method to join the input of this process with the output of ReadMapper
@@ -318,11 +325,12 @@ func (proc *GraphPruner) Connect(previous *ReadMapper) {
 
 // CollectOutput is a method to return what paths are left post-pruning
 func (proc *GraphPruner) CollectOutput() []string {
-	return proc.output
+	return proc.foundPaths
 }
 
 // Run is the method to run this process, which satisfies the pipeline interface
 func (proc *GraphPruner) Run() {
+	defer close(proc.output)
 	graphChan := make(chan *graph.GrootGraph)
 	var wg sync.WaitGroup
 	counter := 0
@@ -347,32 +355,28 @@ func (proc *GraphPruner) Run() {
 	}()
 
 	// count and print some stuff
-	graphCounter := 0
 	keptPaths := []string{}
+	keptGraphs := make(graph.Store)
 	log.Print("processing graphs...")
 	for g := range graphChan {
-		// write the graph
 		g.GrootVersion = proc.info.Version
-		fileName := fmt.Sprintf("%v/groot-graph-%d.gfa", proc.info.Sketch.GraphDir, g.GraphID)
-		_, err := g.SaveGraphAsGFA(fileName)
-		misc.ErrorCheck(err)
-		graphCounter++
+		keptGraphs[g.GraphID] = g
 		log.Printf("\tgraph %d has %d remaining paths after weighting and pruning", g.GraphID, len(g.Paths))
 		for _, path := range g.Paths {
 			log.Printf("\t- [%v]", string(path))
 			keptPaths = append(keptPaths, string(path))
 		}
+		if proc.connectHaplotype {
+			proc.output <- g
+		}
 	}
 	log.Printf("\ttotal number of graphs pruned: %d\n", counter)
-	if graphCounter == 0 {
+	if len(keptGraphs) == 0 {
 		log.Print("\tno graphs remaining after pruning")
 	} else {
-		log.Printf("writing graphs to \"./%v/\"...", proc.info.Sketch.GraphDir)
-		log.Printf("\ttotal number of graphs written to disk: %d\n", graphCounter)
+		log.Printf("\ttotal number of graphs remaining: %d\n", len(keptGraphs))
 		log.Printf("\ttotal number of possible haplotypes found: %d\n", len(keptPaths))
-		log.Printf("updating index with sketching info from this run...\n")
-		misc.ErrorCheck(proc.info.Dump(proc.info.Index.IndexDir + "/index.info"))
-		log.Printf("\tsaved index info to \"%v/index.info\"", proc.info.Index.IndexDir)
 	}
-	proc.output = keptPaths
+	proc.info.Store = keptGraphs
+	proc.foundPaths = keptPaths
 }
