@@ -18,13 +18,15 @@ type GrootWASM struct {
 	initMemCb  js.Func
 	initMem2Cb js.Func
 
-	fileSelectionCb js.Func
+	indexLoaderCb   js.Func
+	inputCheckerCb  js.Func
 	grootCb       	js.Func
+	closeFASTQchanCb	js.Func
 	shutdownCb    	js.Func
 
 	console js.Value
 	done    chan struct{}
-	ready   bool
+	inputCheck bool
 	running bool
 	results bool
 }
@@ -33,6 +35,7 @@ type GrootWASM struct {
 func New() *GrootWASM {
 	return &GrootWASM{
 		console: js.Global().Get("console"),
+		fastq: make(chan []byte, pipeline.BUFFERSIZE),
 		done:    make(chan struct{}),
 	}
 }
@@ -42,21 +45,31 @@ func (s *GrootWASM) Start() {
 
 	// the call back for the mem pointers
 	s.setupInitMem1Cb()
-	js.Global().Set("initMem1", s.initMemCb)
+	js.Global().Set("initFASTQmem", s.initMemCb)
 	s.setupInitMem2Cb()
-	js.Global().Set("initMem2", s.initMem2Cb)
+	js.Global().Set("initIndexMem", s.initMem2Cb)
 
-	// the call back for setting the input files
-	s.setupOnFileSelectionCb()
+	// the call back for downloading and loading the index
+	s.setupOnIndexLoad()
 	js.Global().Get("document").
-		Call("getElementById", "setInput").
-		Call("addEventListener", "click", s.fileSelectionCb)	
+		Call("getElementById", "indexLoader").
+		Call("addEventListener", "click", s.indexLoaderCb)
+	
+	// the call back for checking the input
+	s.setupInputCheckerCb()
+	js.Global().Get("document").
+		Call("getElementById", "inputCheck").
+		Call("addEventListener", "click", s.inputCheckerCb)
 
 	// the call back for running GROOT!
 	s.setupGrootCb()
 	js.Global().Get("document").
 		Call("getElementById", "startIcon").
 		Call("addEventListener", "click", s.grootCb)
+
+	// the call back for closing the input channel
+	s.setupCloseFASTQchanCb()
+	js.Global().Set("closeFASTQchan", s.closeFASTQchanCb)
 
 	// the call back for shutting down the app
 	s.setupShutdownCb()
@@ -66,7 +79,8 @@ func (s *GrootWASM) Start() {
 
 	<-s.done
 	s.statusUpdate("Shutting down GROOT app...")
-	s.fileSelectionCb.Release()
+	s.indexLoaderCb.Release()
+	s.inputCheckerCb.Release()
 	s.grootCb.Release()
 	s.shutdownCb.Release()
 	s.statusUpdate("GROOT has shut the app down!")
