@@ -10,32 +10,33 @@ import (
 
 // GrootWASM
 type GrootWASM struct {
-	info  *pipeline.Info
-	fastq chan []byte
+	info       *pipeline.Info
+	fastqFiles []interface{}
+	fastq      chan []byte
 
 	inBuf1     []uint8
 	inBuf2     []uint8
 	initMemCb  js.Func
 	initMem2Cb js.Func
 
-	indexLoaderCb   js.Func
-	inputCheckerCb  js.Func
-	grootCb       	js.Func
-	closeFASTQchanCb	js.Func
-	shutdownCb    	js.Func
+	inputCheckerCb   js.Func
+	fastqFilesCb     js.Func
+	grootCb          js.Func
+	closeFASTQchanCb js.Func
+	shutdownCb       js.Func
 
-	console js.Value
-	done    chan struct{}
+	console    js.Value
+	done       chan struct{}
 	inputCheck bool
-	running bool
-	results bool
+	running    bool
+	results    bool
 }
 
 // New returns a new instance of GrootWASM
 func New() *GrootWASM {
 	return &GrootWASM{
 		console: js.Global().Get("console"),
-		fastq: make(chan []byte, pipeline.BUFFERSIZE),
+		fastq:   make(chan []byte, pipeline.BUFFERSIZE),
 		done:    make(chan struct{}),
 	}
 }
@@ -49,12 +50,10 @@ func (s *GrootWASM) Start() {
 	s.setupInitMem2Cb()
 	js.Global().Set("initIndexMem", s.initMem2Cb)
 
-	// the call back for downloading and loading the index
-	s.setupOnIndexLoad()
-	js.Global().Get("document").
-		Call("getElementById", "indexLoader").
-		Call("addEventListener", "click", s.indexLoaderCb)
-	
+	// the call back for getting the FASTQ file list
+	s.setupFastqFiles()
+	js.Global().Set("loadFileList", s.fastqFilesCb)
+
 	// the call back for checking the input
 	s.setupInputCheckerCb()
 	js.Global().Get("document").
@@ -79,7 +78,10 @@ func (s *GrootWASM) Start() {
 
 	<-s.done
 	s.statusUpdate("Shutting down GROOT app...")
-	s.indexLoaderCb.Release()
+	s.initMemCb.Release()
+	s.initMem2Cb.Release()
+	s.fastqFilesCb.Release()
+	s.closeFASTQchanCb.Release()
 	s.inputCheckerCb.Release()
 	s.grootCb.Release()
 	s.shutdownCb.Release()

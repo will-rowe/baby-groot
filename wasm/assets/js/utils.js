@@ -10,91 +10,109 @@ function gotMem(pointer) {
     memoryBytes.set(bytes, pointer);
 }
 
-// function to read whole file into memory (note: not currently used)
-function loadFASTQfiles(f) {
-    let reader = new FileReader();
-    reader.onload = (ev) => {
-      bytes = new Uint8Array(ev.target.result);
-      initFASTQmem(bytes.length);
-    };
-    reader.readAsArrayBuffer(f);
-  }
-
-// fastqStreamer reads in a url as a FASTQ data stream, assigns memory for reads and sends them to the groot input channel
-function fastqStreamer() {
-    //var url = "./groot-files/test-reads-OXA90-100bp-50x-with-errors.fastq";
-    var url = "./groot-files/test-data/1.fastq";
-    var progress = 0;
-    var contentLength = 0;
-
-    var partialCell = '';
-    var decoder = new TextDecoder();
-
-    fetch(url).then(function(response) {
-        // get the size of the request via the headers of the response
-        contentLength = response.headers.get('Content-Length');
-        var pump = function(reader) {
-            return reader.read().then(function(result) {
-
-                partialCell += decoder.decode(result.value || new Uint8Array, {stream: !result.done});
-
-                
-                // report our current progress
-                //progress += chunk.byteLength;
-                //console.log(((progress / contentLength) * 100) + '%');
-                console.log("working on chunk");
-
-                  // Split what we have into CSV 'cells'
-                  var cellBoundry = /(\r\n)/;
-                  var completeCells = partialCell.split(cellBoundry);
-            
-                  if (!result.done) {
-                    // Last cell is likely incomplete
-                    // Keep hold of it for next time
-                    partialCell = completeCells[completeCells.length - 1];
-                    // Remove it from our complete cells
-                    completeCells = completeCells.slice(0, -1);
-                  }
-            
-                  // for each chunk of data, split it by line
-                  for (var cell of completeCells) {
-                    var lines = cell.split("\n");
-                    var arrayLength = lines.length;
-                    for (var i = 0; i < arrayLength; i++) {
-
-                        l = toUTF8Array(lines[i])
-                        // send the line
-                        bytes = new Uint8Array(l);
-                        initFASTQmem(bytes.length);
-                    }
-                  }
-            
-                // if we're done reading the stream, return
-                if (result.done) {
-                    closeFASTQchan()
-                    return;
-                }
-
-                // go to next chunk via recursion
-                return pump(reader);
-            });
+// prepIndex gets the index ready for loading
+function getIndex(indexURL) {
+    var reader = new FileReader();
+    fetch(indexURL).then(function(response) {
+        if (!response.ok) {
+            statusUpdate("status", "could not download index!")
         }
-
-        // start reading the response stream
-        return pump(response.body.getReader());
+        return response.blob();
+    }).then(data => {
+            reader.readAsArrayBuffer(data);
     })
     .catch(function(error) {
         console.log(error);
     });
+    
+    reader.onload = (ev) => {
+        bytes = new Uint8Array(ev.target.result);
+        if (bytes === null) {
+            statusUpdate("status", "could not download index!")
+        } else {
+            initIndexMem(bytes.length);
+        }
+    }
 }
 
+// fastqStreamer reads in a url as a FASTQ data stream, assigns memory for reads and sends them to the groot input channel
+/*
+function fastqStreamer(fileArr) {
+    var files = fileArr[0];
+    var funcs = [];
+    
+    for (var i = 0; i < files.length; i++) {    
+        var fn = new Promise(function(resolve) {
+            streamFastq(files[i]);
+            resolve()
+        });
+        funcs.push(fn);
+    }
 
+    Promise.all(funcs).then(response => {
+        // Loop finished, what to do nexT?
+        console.log("stream response: ", response)
+        })
+        .catch(error => {
+        // Error
+        console.log(error);
+        });
+}
+*/
 
+async function fastqStreamer(fileArr) {
+    var items = fileArr[0]
+    var closeSignal = false;
+    var i = 0;
+    await new Promise(async (resolve, reject) => {
+        try {
+            if (items.length == 0) return resolve();
+            let funSync = async () => {
+                if ((i+1) == items.length) {
+                    closeSignal = true;
+                }
+                await streamFastq(items[i], closeSignal);
+                i++
+                if (i == items.length) {
+                    resolve();
+                }
+                else funSync();
+            }
+            funSync();
+        } catch (e) {
+            reject(e);
+        }
+    });
+}
 
+function streamFastq(fileName, closeSignal) {
+        fetch(fileName).then(function(response) {
+            console.log("fetching: ", fileName)
+            var pump = function(reader) {
+                return reader.read().then(function(result) {
+                    // send the chunk on for processing
+                    var chunk = result.value;
+                    bytes = new Uint8Array(chunk);
+                    initFASTQmem(bytes.length);
+                    // if we're done reading the stream, return
+                    if (result.done) {
+                        if (closeSignal == true) {
+                            closeFASTQchan();
+                        }
+                        return;
+                    }
+                    // go to next chunk via recursion
+                    return pump(reader);
+                });
+            }
+            // start reading the response stream
+            return pump(response.body.getReader());
+        }).catch(function(error) {
+            console.log(error);
+        });
+}
 
-
-
-
+// toggleDiv
 function toggleDiv(id) {
     var el = document.getElementById(id);
     if (el.style.display === "block") {
@@ -104,6 +122,7 @@ function toggleDiv(id) {
     }
 }
 
+//
 function statusUpdate(elementID, msg) {
 	var element = document.getElementById(elementID);
     $(element).stop().fadeOut(500, function() {
@@ -112,23 +131,25 @@ function statusUpdate(elementID, msg) {
     });
 }
 
+//
 function iconUpdate(id) {
     var el = document.getElementById(id);
     $(el).stop().fadeOut(500, function() {
         el.className = '';
         el.classList.add('fa', 'fa-check');
-        el.style.color = '#80ff00';
+        el.style.color = '#3fa46a';
         $(el, this).fadeIn(500);
     });
 }
 
+//
 function setParameters() {
     iconUpdate("paramIcon")
     statusUpdate("status", "parameters are set")
 }
 
-function startSpinner() {
-    var el = document.getElementById("start");
+function startRecord() {
+    var el = document.getElementById("startIcon");
     $(el).stop().fadeOut(500, function() {
         el.className = '';
         el.classList.add('fa', 'fa-compact-disc', "fa-spin");
@@ -137,8 +158,8 @@ function startSpinner() {
     });
 }
  
-function stopSpinner() {
-    var el = document.getElementById("start");
+function stopRecord() {
+    var el = document.getElementById("startIcon");
     $(el).stop().fadeOut(500, function() {
         el.className = '';
         el.classList.add('fa', 'fa-play');
@@ -175,32 +196,6 @@ function updateTimer(elapsedTime) {
     $("#runTime").append("<sub style='color:black;'>time elapsed: " + elapsedTime + "</sub>");
 }
 
-function getIndex(url) {
-    var reader = new FileReader();
-    fetch(url)
-    .then(function(response) {
-        if (!response.ok) {
-            setButtonColour("indexGetter", "red")
-            setButtonText("indexGetter", "download failed");
-        }
-        return response.blob();
-    })
-    .then(data => {
-        reader.readAsArrayBuffer(data);
-    });
-    reader.onload = (ev) => {
-        bytes = new Uint8Array(ev.target.result);
-        if (bytes === null) {
-            setButtonColour("indexGetter", "red")
-            setButtonText("indexGetter", "download failed");
-        } else {
-            setButtonColour("indexGetter", "#80ff00");
-            setButtonText("indexGetter", "downloaded!");
-        }
-        initIndexMem(bytes.length);
-    };
-}
-
 function setButtonColour(id, colour) {
     var el = document.getElementById(id);
     el.style.backgroundColor = colour;
@@ -208,7 +203,7 @@ function setButtonColour(id, colour) {
 
 function setButtonText(id, txt) {
     var el = document.getElementById(id);
-    el.innerHTML = "<span>" + txt + "</span>";
+    el.innerHTML = "<span style='color: white'>" + txt + "</span>";
 }
 
 $('#uploader1').bind('change', function () {
@@ -225,6 +220,7 @@ $('#uploader1').bind('change', function () {
 
 
 
+// TODO: this is stupid, can't I bypass needing to do so many conversions?
 function toUTF8Array(str) {
     var utf8 = [];
     for (var i=0; i < str.length; i++) {

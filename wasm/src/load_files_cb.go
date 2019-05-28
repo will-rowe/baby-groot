@@ -3,9 +3,7 @@
 package bg
 
 import (
-	//"bufio"
-	//"bytes"
-	//"io"
+	"fmt"
 	"reflect"
 	"syscall/js"
 	"unsafe"
@@ -16,17 +14,18 @@ import (
 // closeFASTQchan
 func (s *GrootWASM) setupCloseFASTQchanCb() {
 	s.closeFASTQchanCb = js.FuncOf(func(this js.Value, i []js.Value) interface{} {
+		fmt.Println("closing FASTQ stream")
 		close(s.fastq)
 		return nil
 	})
-	return	
+	return
 }
 
 // setupInitMem1Cb handles the memory for the fastq stream
 func (s *GrootWASM) setupInitMem1Cb() {
-	s.initMemCb = js.FuncOf(func(this js.Value, i []js.Value) interface{} {
+	s.initMemCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		// create the buffer and a pointer for this chunk of fastq data
-		length := i[0].Int()
+		length := args[0].Int()
 		fastqBuffer := make([]uint8, length)
 		hdr := (*reflect.SliceHeader)(unsafe.Pointer(&fastqBuffer))
 		ptr := uintptr(unsafe.Pointer(hdr.Data))
@@ -44,27 +43,45 @@ func (s *GrootWASM) setupInitMem2Cb() {
 	// The length of the image array buffer is passed.
 	// Then the buf slice is initialized to that length.
 	// And a pointer to that slice is passed back to the browser.
-	s.initMem2Cb = js.FuncOf(func(this js.Value, i []js.Value) interface{} {
-		length := i[0].Int()
-		s.console.Call("log", "length:", length)
+	s.initMem2Cb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		length := args[0].Int()
+		s.console.Call("log", "got index - size:", length)
 		s.inBuf2 = make([]uint8, length)
 		hdr := (*reflect.SliceHeader)(unsafe.Pointer(&s.inBuf2))
 		ptr := uintptr(unsafe.Pointer(hdr.Data))
-		s.console.Call("log", "ptr:", ptr)
 		js.Global().Call("gotMem", ptr)
 		return nil
 	})
 	return
 }
 
-// setupOnIndexLoad is the callback to load the index
-func (s *GrootWASM) setupOnIndexLoad() {
-	s.indexLoaderCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+// setupFastqFiles is the callback to get a list of FASTQs for GROOT
+func (s *GrootWASM) setupFastqFiles() {
+	s.fastqFilesCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		files := make([]interface{}, len(args))
+		for i, val := range args {
+			files[i] = val
+		}
+		if len(files) != 0 {
+			s.fastqFiles = files
+			fmt.Println("fastq files ready for streaming")
+		} else {
+			fmt.Println("no input files found")
+		}
+		return nil
+	})
+	return
+}
+
+// setupInputCheckerCb is the callback to check the input is correct
+func (s *GrootWASM) setupInputCheckerCb() {
+	s.inputCheckerCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		js.Global().Call("toggleDiv", "spinner")
 
 		// check the index downloaded
 		if len(s.inBuf2) == 0 {
 			js.Global().Call("toggleDiv", "inputModal")
-			s.statusUpdate("index file didn't download!")
+			s.statusUpdate("can't find index")
 			return nil
 		}
 
@@ -74,10 +91,7 @@ func (s *GrootWASM) setupOnIndexLoad() {
 			s.statusUpdate("does not look like a GROOT index!")
 			return nil
 		}
-
-		// update the user
-		js.Global().Call("setButtonColour", "indexLoader", "#80ff00")
-		js.Global().Call("setButtonText", "indexLoader", "loaded!")
+		fmt.Println("index loaded")
 
 		/////////////////////////////////////////////////
 		// TODO: have these parameters set by the user
@@ -95,59 +109,18 @@ func (s *GrootWASM) setupOnIndexLoad() {
 		}
 		/////////////////////////////////////////////////
 
-		return nil
-	})
-	return
-}
-
-
-// setupInputCheckerCb is the callback to check the input is correct
-func (s *GrootWASM) setupInputCheckerCb() {
-	s.inputCheckerCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-
-
-		//TODO: check fastq data streamer is ready to go
-		/*
-				// check for the FASTQ file
-				if len(s.inBuf1) == 0 {
-					s.statusUpdate("no FASTQ file selected!")
-					return nil
-				}
-				// read the FASTQ
-				var wg sync.WaitGroup
-				wg.Add(1)
-				var b bytes.Buffer
-				b.Write(s.inBuf1)
-				reader := bufio.NewReader(&b)
-				go func() {
-					for {
-						line, err := reader.ReadBytes('\n')
-						if err != nil {
-							if err == io.EOF {
-								break
-							} else {
-								s.statusUpdate(fmt.Sprintf("%v\n", err))
-							}
-						}
-						s.fastq <- append([]byte(nil), line...)
-					}
-					wg.Done()
-				}()
-				go func() {
-					wg.Wait()
-					close(s.fastq)
-				}()
-*/
-
-
 		js.Global().Call("toggleDiv", "inputModal")
-		if s.info == nil {
-			s.statusUpdate("index file didn't load!")
+		if len(s.fastqFiles) == 0 {
+			s.statusUpdate("no FASTQ files selected!")
 			return nil
 		}
-
+		if s.info == nil {
+			s.statusUpdate("index isn't loaded!")
+			return nil
+		}
 		s.iconUpdate("inputIcon")
 		s.statusUpdate("input is set")
+		js.Global().Call("toggleDiv", "spinner")
 		s.inputCheck = true
 		return nil
 	})

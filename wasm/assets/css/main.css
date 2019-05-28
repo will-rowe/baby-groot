@@ -4,6 +4,7 @@
 :root {
 	--bg-colour: #E9DBC5;
 	--fg-colour: #F16721;
+	--green-colour: #3fa46a;
 }
 
 html, body, div, span, applet, object,
@@ -81,7 +82,6 @@ html {
 }
 
 body {
-
   background: #000;
 	overflow: hidden;
 }
@@ -96,7 +96,35 @@ body.pageMask *, body.pageMask *:before, body.pageMask *:after {
 	-moz-transition: none !important;
 	-webkit-transition: none !important;
 	-ms-transition: none !important;
+}
 
+#spinner {
+	position: absolute;
+	display: block;
+	width: 100%;
+  height: 100%;
+	top: 50%;
+	left: 50%;
+	margin: 0 auto;
+	z-index: 10;
+}
+#spinner:after {
+  content: " ";
+  display: block;
+  width: 4em;
+  height: 4em;
+  border-radius: 50%;
+  border: 6px solid var(--fg-colour);
+  border-color: var(--fg-colour) transparent var(--fg-colour) transparent;
+  animation: lds-dual-ring 1.2s linear infinite;
+}
+@keyframes lds-dual-ring {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 body, input, select, textarea {
@@ -955,14 +983,14 @@ button:hover span {
   -o-transition: all 0.2s ease-in-out;
 }
 .file-upload.active .file-select {
-  border-color: #3fa46a;
+  border-color: var(--green-colour);
   transition: all 0.2s ease-in-out;
   -moz-transition: all 0.2s ease-in-out;
   -webkit-transition: all 0.2s ease-in-out;
   -o-transition: all 0.2s ease-in-out;
 }
 .file-upload.active .file-select .file-select-button {
-  background: #3fa46a;
+  background: var(--green-colour);
   color: #ffffff;
   transition: all 0.2s ease-in-out;
   -moz-transition: all 0.2s ease-in-out;
@@ -1027,4 +1055,37 @@ button:hover span {
 	border-color: var(--fg-colour);
 	border-style: solid;
 	box-shadow: inset 0 2px 2px black;
+}
+
+.select-css {
+  cursor: default;
+  display: block;
+  border: 2px solid #dce4ec;
+  color: #34495e;
+  cursor: pointer;
+  height: 40px;
+  line-height: 40px;
+  margin-top: 5px;
+  text-align: left;
+  background: #ffffff;
+  overflow: hidden;
+  position: relative;
+	width: 100%;
+	max-width: 100%; 
+	background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23007CB2%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E');
+	background-repeat: no-repeat, repeat;
+	background-position: right .7em top 50%, 0 0;
+	background-size: .65em auto, 100%;
+}
+.select-css::-ms-expand {
+	display: none;
+}
+.select-css:hover {
+	border-color: #34495e;
+}
+.select-css:focus {
+	border-color: #34495e;
+}
+.select-css option {
+	font-weight:normal;
 }

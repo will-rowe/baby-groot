@@ -8,9 +8,9 @@
   <link rel="stylesheet" href="assets/css/main.css" type="text/css">
 </head>
 
-<body class="pageMask">
+<body>
+  <div id="spinner"></div>
   <div id="wrapper"></div>
-
   <div class="overlay">
       <object id="honeycomb" type="image/svg+xml" data="assets/css/images/overlay.svg"><img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="honeycomb"></object>
   </div>
@@ -21,11 +21,9 @@
     <div class="header" id="header">
 
       <!-- Logo -->
-      <div id="imgLoader" style="display: none;">
-        <object id="logo-animated" type="image/svg+xml" data="assets/css/images/baby-groot.svg">
-          <img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="logo">
-        </object>
-      </div>
+      <object id="logo-animated" type="image/svg+xml" data="assets/css/images/baby-groot.svg">
+        <img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="logo">
+      </object>
 
       <!-- Status bar -->
       <div id="status">
@@ -48,11 +46,8 @@
           <h2>Select Files</h2>
           <sub>note: no files are actually sent anywhere!</sub>
           <hr/>
-          <!-- INDEX -->
-          <button id="indexGetter"><span>1. download the index</span></button>
-          <button id="indexLoader"><span>2. load the index</span></button>
-
           <!-- FASTQ -->
+          <p>1. select FASTQ files:</p>
           <div class="file-upload" id="fastqSelecter">
             <div class="file-select">
               <div class="file-select-button" id="fastqFileName">select FASTQ file</div>
@@ -61,7 +56,15 @@
             </div>
           </div>
           <div id="filedrag">or drop FASTQ files here...</div>
+          <!-- INDEX -->
+          <p>2. select an index:</p>
+          <select class="select-css" id="indexSelecter">
+              <option value = "groot-files/groot.index" selected>ARG-ANNOT (default)</option>
+              <option value = "index 2" disabled>index 2</option>
+              <option value = "index3" disabled>index 3</option>
+          </select>
           <hr/>
+          <p>3. check input and load (takes a few seconds):</p>
           <button id="inputCheck"><span>confirm!</span></button>
         </div>
       </div>
@@ -114,23 +117,6 @@
             I AM <a>GROOT</a>!
           </p>
 
-          <p>
-            An HTML scroll box is a box that adds scroll bars to the right side and bottom when the contents of the box are larger than the box dimensions. In other words, if you have a box that can fit around 50 words, and you have text of 200 words, an HTML scroll box will put scroll bars up to let you see the additional 150 words. In standard HTML that would simply push the extra text outside of the box.
-
-            Making HTML scroll is fairly easy. You just need to set the width and height of the element you want to scroll and then use the CSS overflow property to set how you want the scrolling to occur.
-            What to Do with Extra Text?
-
-            When you have more text than will fit in the space on your layout, you have a few options:
-
-                Rewrite the text so that it is shorter and will fit.
-                Allow the text to flow beyond the bounds and hope the layout can flex to support it.
-                Cut off the text where it overflows.
-                Add scroll bars (usually vertical for text) so that the space scrolls to show the extra text.
-
-            The best option is typically the last option: create a scrolling text box. Then extra text can still be read, but your design is not compromised.
-
-            HTML and CSS for this would be: 
-          </p>
         </div>
       </div>
     </div>
@@ -154,14 +140,21 @@
     window.ontouchmove = function() {return false;}
     window.onorientationchange = function() {document.body.scrollTop = 0;}
     window.onload = function() {
-      document.body.classList.remove("pageMask");
-      document.getElementById("imgLoader").style.display = "block";
       if (window.File && window.FileList && window.FileReader) {
         initInputFiles();
       } else {
         statusUpdate('status', 'please get a more recent browser!');
       }
+      // get the default index ready
+      getIndex("groot-files/groot.index");
+      // turn the spinner off
+      document.getElementById("spinner").style.display="none";
     }
+    // listen out for index selection
+    document.getElementById("indexSelecter").addEventListener('click', function() {
+      var selectedIndex = document.getElementById("indexSelecter").selectedOptions;
+      getIndex(selectedIndex[0].value);
+    });
   </script>
 
   <!--- JS for modals --->
@@ -192,14 +185,9 @@
     }
   </script>
 
-  <!--- JS for input files --->
+  <!--- JS for FASTQ files --->
   <script>
     function initInputFiles() {
-      // listen out for index getter
-      document.getElementById("indexGetter").addEventListener('click', function() {
-        var url = "https://cdn.jsdelivr.net/gh/will-rowe/baby-groot/wasm/groot-files/groot.index";
-        getIndex(url);
-      });
       // set up the FASTQ input
       var uploader1 = $id("uploader1"), filedrag = $id("filedrag");
       uploader1.addEventListener("change", FileSelectHandler, false);
@@ -217,42 +205,32 @@
           e.preventDefault();
           e.target.className = (e.type == "dragover" ? "hover" : "");
     }
-
+    var fastqStreamer;
     function FileSelectHandler(e) {
           // cancel event and hover styling
           FileDragHover(e);
           // fetch FileList object
           var files = e.target.files || e.dataTransfer.files;
-          // process all FASTQ objects TODO: need to handle multiple files!!!
+          if (files.length != 0) {
+            $("#fastqSelecter").addClass('active');
+            document.getElementById("noFile").innerHTML = "";
+          } else {
+            $("#fastqSelecter").removeClass('active');
+            document.getElementById("noFile").innerHTML = "no files :(";
+          }
+          // process all FASTQ files
+          var fastqList = [];
           for (var i = 0, f; f = files[i]; i++) {
             // add filename to the selector bar
-            var filename = f.name;
-            if (/^\s*$/.test(filename)) {
-              $("#fastqSelecter").removeClass('active');
-              $("#noFile").text("No file chosen..."); 
-            }
-            else {
-              $("#fastqSelecter").addClass('active');
-              $("#noFile").text(filename.replace("C:\\fakepath\\", "") + ","); 
-            }
-            // add the file to the stream queue
-
-
-            //loadFASTQfiles(f);
-            
+            var fileName = f.name.replace("C:\\fakepath\\", "");
+            document.getElementById("noFile").innerHTML += fileName + ",";
+            // add the file for GROOT
+            fastqList.push(URL.createObjectURL(f));
           }
+          // get the FASTQ streamer ready
+          loadFileList(fastqList);
     }
   </script>
-
-
-<script>
-  /*
-
-
-*/
-</script>
-
-
 
   <!--- JS for WASM --->
   <script type="text/javascript">

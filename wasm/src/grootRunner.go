@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"syscall/js"
 	"time"
+
 	//"sync"
 
 	"github.com/will-rowe/baby-groot/src/pipeline"
@@ -19,7 +20,7 @@ func (s *GrootWASM) setupGrootCb() {
 				s.statusUpdate("problem with input!")
 				return
 			}
-		
+
 			// stop GROOT?
 			if s.running == true {
 				s.running = false
@@ -28,34 +29,36 @@ func (s *GrootWASM) setupGrootCb() {
 				js.Global().Call("stopLogo")
 				return
 			}
-		
+
 			// start GROOT notifications
 			s.running = true
 			s.statusUpdate("running GROOT...")
-			js.Global().Call("startSpinner")
+			js.Global().Call("startRecord")
 			js.Global().Call("startLogo")
 			startTime := time.Now()
-			
+
 			// set up the pipeline
 			sketchingPipeline := pipeline.NewPipeline()
+			wasmStreamer := pipeline.NewWASMstreamer()
 			fastqHandler := pipeline.NewFastqHandler(s.info)
 			fastqChecker := pipeline.NewFastqChecker(s.info)
 			readMapper := pipeline.NewDbQuerier(s.info)
 			graphPruner := pipeline.NewGraphPruner(s.info, true)
 			emPathFinder := pipeline.NewEMpathFinder(s.info)
 			haploParser := pipeline.NewHaplotypeParser(s.info)
-		
+
 			// connect the pipeline
-			fastqHandler.ConnectChan(s.fastq)
+			wasmStreamer.ConnectChan(s.fastq)
+			fastqHandler.ConnectWASM(wasmStreamer)
 			fastqChecker.Connect(fastqHandler)
 			readMapper.Connect(fastqChecker)
 			graphPruner.Connect(readMapper)
 			emPathFinder.ConnectPruner(graphPruner)
 			haploParser.Connect(emPathFinder)
-			sketchingPipeline.AddProcesses(fastqHandler, fastqChecker, readMapper, graphPruner, emPathFinder, haploParser)
+			sketchingPipeline.AddProcesses(wasmStreamer, fastqHandler, fastqChecker, readMapper, graphPruner, emPathFinder, haploParser)
 
 			// start the stream and send data to the pipeline
-			go js.Global().Call("fastqStreamer")
+			go js.Global().Call("fastqStreamer", s.fastqFiles)
 
 			// run the pipeline
 			sketchingPipeline.Run()
@@ -82,7 +85,7 @@ func (s *GrootWASM) setupGrootCb() {
 			}
 
 			// report any results
-			js.Global().Call("stopSpinner")
+			js.Global().Call("stopRecord")
 			js.Global().Call("stopLogo")
 			s.iconUpdate("startIcon")
 			if s.results == false {

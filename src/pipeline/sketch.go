@@ -6,6 +6,7 @@ package pipeline
 
 import (
 	"bufio"
+	"bytes"
 	"compress/gzip"
 	"errors"
 	"fmt"
@@ -76,6 +77,65 @@ func (proc *DataStreamer) Run() {
 	}
 }
 
+// WASMstreamer is a pipeline process that streams data from the WASM JS function
+type WASMstreamer struct {
+	input  chan []byte
+	output chan []byte
+}
+
+// NewWASMstreamer is the constructor
+func NewWASMstreamer() *WASMstreamer {
+	return &WASMstreamer{output: make(chan []byte, BUFFERSIZE)}
+}
+
+// ConnectChan is a to connect the pipeline to the WASM JS function
+func (proc *WASMstreamer) ConnectChan(inputChan chan []byte) {
+	proc.input = inputChan
+}
+
+// Run is the method to run this process, which satisfies the pipeline interface
+func (proc *WASMstreamer) Run() {
+	defer close(proc.output)
+	leftOvers := []byte{}
+
+	// collect a chunk of fastq from the WASM JS function
+	for chunk := range proc.input {
+		if len(chunk) < 1 {
+			continue
+		}
+
+		// add any leftovers to the start of this chunk and clear the leftovers
+		chunk = append(leftOvers, chunk...)
+		leftOvers = []byte{}
+
+		// remove the final part of the chunk (as it could be a truncated line)
+		i := 0
+		for i = len(chunk) - 1; i > 0; i-- {
+			leftOvers = append([]byte{chunk[i]}, leftOvers...)
+			if chunk[i] == 0x0A {
+				break
+			}
+		}
+		chunk = chunk[0:i]
+
+		// convert bytes to reader
+		chunkBuffer := bytes.NewReader(chunk)
+
+		// read the chunk line by line
+		scanner := bufio.NewScanner(chunkBuffer)
+		for scanner.Scan() {
+			// ignore empty lines and send
+			line := bytes.TrimSpace(scanner.Bytes())
+			if len(line) > 0 {
+				proc.output <- append([]byte(nil), line...)
+			}
+		}
+		if scanner.Err() != nil {
+			log.Fatal(scanner.Err())
+		}
+	}
+}
+
 // FastqHandler is a pipeline process to convert a pipeline to the FASTQ type
 type FastqHandler struct {
 	info   *Info
@@ -88,9 +148,9 @@ func NewFastqHandler(info *Info) *FastqHandler {
 	return &FastqHandler{info: info, output: make(chan *seqio.FASTQread, BUFFERSIZE)}
 }
 
-// ConnectChan is a tmp solution for WASM
-func (proc *FastqHandler) ConnectChan(inputChan chan []byte) {
-	proc.input = inputChan
+// ConnectWASM  is a tmp solution for WASM
+func (proc *FastqHandler) ConnectWASM(previous *WASMstreamer) {
+	proc.input = previous.output
 }
 
 // Connect is the method to join the input of this process with the output of a DataStreamer
