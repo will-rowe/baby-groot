@@ -35,31 +35,7 @@ function getIndex(indexURL) {
     }
 }
 
-// fastqStreamer reads in a url as a FASTQ data stream, assigns memory for reads and sends them to the groot input channel
-/*
-function fastqStreamer(fileArr) {
-    var files = fileArr[0];
-    var funcs = [];
-    
-    for (var i = 0; i < files.length; i++) {    
-        var fn = new Promise(function(resolve) {
-            streamFastq(files[i]);
-            resolve()
-        });
-        funcs.push(fn);
-    }
-
-    Promise.all(funcs).then(response => {
-        // Loop finished, what to do nexT?
-        console.log("stream response: ", response)
-        })
-        .catch(error => {
-        // Error
-        console.log(error);
-        });
-}
-*/
-
+//
 async function fastqStreamer(fileArr) {
     var items = fileArr[0]
     var closeSignal = false;
@@ -85,6 +61,7 @@ async function fastqStreamer(fileArr) {
     });
 }
 
+//
 function streamFastq(fileName, closeSignal) {
         fetch(fileName).then(function(response) {
             console.log("fetching: ", fileName)
@@ -115,11 +92,12 @@ function streamFastq(fileName, closeSignal) {
 // toggleDiv
 function toggleDiv(id) {
     var el = document.getElementById(id);
-    if (el.style.display === "block") {
-        el.style.display = "none";
+    if (el.style.display == 'block') {
+        el.style.display = 'none';
     } else {
-        el.style.display = "block";
+        el.style.display = 'block';
     }
+    console.log(el);
 }
 
 //

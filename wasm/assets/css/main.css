@@ -98,35 +98,6 @@ body.pageMask *, body.pageMask *:before, body.pageMask *:after {
 	-ms-transition: none !important;
 }
 
-#spinner {
-	position: absolute;
-	display: block;
-	width: 100%;
-  height: 100%;
-	top: 50%;
-	left: 50%;
-	margin: 0 auto;
-	z-index: 10;
-}
-#spinner:after {
-  content: " ";
-  display: block;
-  width: 4em;
-  height: 4em;
-  border-radius: 50%;
-  border: 6px solid var(--fg-colour);
-  border-color: var(--fg-colour) transparent var(--fg-colour) transparent;
-  animation: lds-dual-ring 1.2s linear infinite;
-}
-@keyframes lds-dual-ring {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
 body, input, select, textarea {
 	color: #E9DBC5;
 	font-family: 'Source Sans Pro', sans-serif;
@@ -1045,7 +1016,7 @@ button:hover span {
 	padding: 1em 0;
 	margin: 1em 0;
 	color: black;
-	border: 2px dashed black;
+	border: 2px dashed var(--fg-colour);
 	border-radius: 7px;
 	cursor: default;
 }
@@ -1088,4 +1059,38 @@ button:hover span {
 }
 .select-css option {
 	font-weight:normal;
+}
+
+#spinner:not([hidden]) {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+	align-items: center;
+	background: rgba(0,0,0,0.6);
+	z-index: 9999;
+}
+
+#spinner::after {
+  content: "";
+  width: 80px;
+  height: 80px;
+  border: 2px solid var(--bg-colour);
+  border-top: 3px solid var(--fg-colour);
+  border-radius: 100%;
+  will-change: transform;
+	animation: spin 1s infinite linear;
+	z-index: 9999;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }

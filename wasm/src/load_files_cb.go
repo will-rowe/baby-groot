@@ -76,11 +76,16 @@ func (s *GrootWASM) setupFastqFiles() {
 // setupInputCheckerCb is the callback to check the input is correct
 func (s *GrootWASM) setupInputCheckerCb() {
 	s.inputCheckerCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		js.Global().Call("toggleDiv", "spinner")
+		js.Global().Get("document").
+			Call("getElementById", "spinner").
+			Call("setAttribute", "hidden", "")
 
-		// check the index downloaded
+		// check the input first
+		if len(s.fastqFiles) == 0 {
+			s.statusUpdate("no FASTQ files selected!")
+			return nil
+		}
 		if len(s.inBuf2) == 0 {
-			js.Global().Call("toggleDiv", "inputModal")
 			s.statusUpdate("can't find index")
 			return nil
 		}
@@ -109,19 +114,13 @@ func (s *GrootWASM) setupInputCheckerCb() {
 		}
 		/////////////////////////////////////////////////
 
-		js.Global().Call("toggleDiv", "inputModal")
-		if len(s.fastqFiles) == 0 {
-			s.statusUpdate("no FASTQ files selected!")
-			return nil
-		}
 		if s.info == nil {
-			s.statusUpdate("index isn't loaded!")
+			s.statusUpdate("index didn't loaded!")
 			return nil
 		}
+		s.inputCheck = true
 		s.iconUpdate("inputIcon")
 		s.statusUpdate("input is set")
-		js.Global().Call("toggleDiv", "spinner")
-		s.inputCheck = true
 		return nil
 	})
 	return

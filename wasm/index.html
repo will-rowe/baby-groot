@@ -9,8 +9,8 @@
 </head>
 
 <body>
-  <div id="spinner"></div>
   <div id="wrapper"></div>
+  <div id="spinner"></div>
   <div class="overlay">
       <object id="honeycomb" type="image/svg+xml" data="assets/css/images/overlay.svg"><img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="honeycomb"></object>
   </div>
@@ -63,9 +63,11 @@
               <option value = "index 2" disabled>index 2</option>
               <option value = "index3" disabled>index 3</option>
           </select>
-          <hr/>
           <p>3. check input and load (takes a few seconds):</p>
-          <button id="inputCheck"><span>confirm!</span></button>
+          <br/>
+          <button id="inputChecker"><span>confirm!</span></button>
+          <br/>
+
         </div>
       </div>
 
@@ -148,13 +150,24 @@
       // get the default index ready
       getIndex("groot-files/groot.index");
       // turn the spinner off
-      document.getElementById("spinner").style.display="none";
+      document.getElementById("spinner").setAttribute('hidden', '');
     }
     // listen out for index selection
     document.getElementById("indexSelecter").addEventListener('click', function() {
       var selectedIndex = document.getElementById("indexSelecter").selectedOptions;
       getIndex(selectedIndex[0].value);
     });
+
+    // listen out for input checker
+    document.getElementById("inputChecker").addEventListener('click', function() {
+      toggleDiv("inputModal");
+      document.getElementById("spinner").removeAttribute('hidden');
+      setTimeout( 
+        function (){  
+          inputCheck();
+        }, 10);
+    });
+
   </script>
 
   <!--- JS for modals --->

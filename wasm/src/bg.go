@@ -56,9 +56,7 @@ func (s *GrootWASM) Start() {
 
 	// the call back for checking the input
 	s.setupInputCheckerCb()
-	js.Global().Get("document").
-		Call("getElementById", "inputCheck").
-		Call("addEventListener", "click", s.inputCheckerCb)
+	js.Global().Set("inputCheck", s.inputCheckerCb)
 
 	// the call back for running GROOT!
 	s.setupGrootCb()
