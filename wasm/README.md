@@ -6,12 +6,14 @@ This is the Web ASembly Port for BABY-GROOT.
 
 To check out the current web version that is produced by this repo, go to [https://will-rowe.github.io/baby-groot](https://will-rowe.github.io/baby-groot/wasm/index.html)
 
+Browser support is restricted to Chrome, Firefox and Opera for now.
+
 ## Running locally
 
 To build the WASM binary and run the development server:
 
 ``` bash
-make build-prod
+make
 
 go run dev-server.go
 ```

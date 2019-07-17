@@ -7,8 +7,6 @@ import (
 	"syscall/js"
 	"time"
 
-	//"sync"
-
 	"github.com/will-rowe/baby-groot/src/pipeline"
 )
 
@@ -69,6 +67,13 @@ func (s *GrootWASM) setupGrootCb() {
 			//foundHaplotypes := haploParser.CollectOutput()
 
 			// print some updates
+			if readStats[1] == 0 {
+				js.Global().Call("stopRecord")
+				js.Global().Call("stopLogo")
+				s.iconUpdate("startIcon")
+				s.statusUpdate("no reads mapped to graphs :(")
+				return
+			}
 			s.statusUpdate(fmt.Sprintf("mapped reads = %d/%d", readStats[1], readStats[0]))
 
 			// get the results

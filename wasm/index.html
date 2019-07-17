@@ -147,14 +147,15 @@
       } else {
         statusUpdate('status', 'please get a more recent browser!');
       }
-      // get the default index ready
-      getIndex("groot-files/groot.index");
+
       // turn the spinner off
       document.getElementById("spinner").setAttribute('hidden', '');
     }
+
     // listen out for index selection
     document.getElementById("indexSelecter").addEventListener('click', function() {
       var selectedIndex = document.getElementById("indexSelecter").selectedOptions;
+      console.log(selectedIndex);
       getIndex(selectedIndex[0].value);
     });
 
@@ -247,10 +248,14 @@
 
   <!--- JS for WASM --->
   <script type="text/javascript">
+
+    let memoryBytes = new WebAssembly.Memory({initial:32767, maximum:65536});
+
     // memoryBytes is an Uint8Array pointing to the webassembly linear memory.
-    let memoryBytes, mod, inst, bytes;
+    let mod, inst, bytes;
     const go = new Go();
-    WebAssembly.instantiateStreaming(fetch("bg.wasm", {cache: 'no-cache'}), go.importObject).then((result) => {
+
+    WebAssembly.instantiateStreaming(fetch("bg.wasm"), go.importObject).then((result) => {
       mod = result.module;
       inst = result.instance;
       memoryBytes = new Uint8Array(inst.exports.mem.buffer);

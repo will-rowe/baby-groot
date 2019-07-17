@@ -347,21 +347,27 @@ func (proc *ReadMapper) Run() {
 		misc.ErrorCheck(fmt.Errorf("no reads passed quality-based trimming"))
 	} else {
 		log.Printf("\tnumber of reads sketched: %d\n", proc.readStats[0])
+	}
 
-	}
+	// nothing may have mapped, which isn't an error - so make GROOT exit gracefully
 	if proc.readStats[1] == 0 {
-		misc.ErrorCheck(fmt.Errorf("no reads could be mapped to the reference graphs"))
-	} else {
-		log.Printf("\ttotal number of mapped reads: %d\n", proc.readStats[1])
-		log.Printf("\t\tuniquely mapped: %d\n", (proc.readStats[1] - proc.readStats[2]))
-		log.Printf("\t\tmultimapped: %d\n", proc.readStats[2])
+		log.Println("no reads could be mapped to the reference graphs")
+
+		// set the graph store to nil so we don't end up writing anything
+		proc.info.Store = make(graph.Store)
+		return
 	}
+	log.Printf("\ttotal number of mapped reads: %d\n", proc.readStats[1])
+	log.Printf("\t\tuniquely mapped: %d\n", (proc.readStats[1] - proc.readStats[2]))
+	log.Printf("\t\tmultimapped: %d\n", proc.readStats[2])
+
 	// send on the graphs now that the mapping is done
 	for _, g := range proc.info.Store {
 		proc.info.Sketch.TotalKmers += g.KmerTotal
 		proc.output <- g
 	}
-	log.Printf("\tnumber of k-mers projected onto graphs: %.0f\n", proc.info.Sketch.TotalKmers)
+	log.Print("processing graphs...")
+	log.Printf("\ttotal number of k-mers projected onto graphs: %.0f\n", proc.info.Sketch.TotalKmers)
 }
 
 // GraphPruner is a pipeline process to prune the graphs post mapping
@@ -417,7 +423,6 @@ func (proc *GraphPruner) Run() {
 	// count and print some stuff
 	keptPaths := []string{}
 	keptGraphs := make(graph.Store)
-	log.Print("processing graphs...")
 	for g := range graphChan {
 		g.GrootVersion = proc.info.Version
 		keptGraphs[g.GraphID] = g
@@ -430,13 +435,16 @@ func (proc *GraphPruner) Run() {
 			proc.output <- g
 		}
 	}
+	if counter == 0 {
+		return
+	}
 	log.Printf("\ttotal number of graphs pruned: %d\n", counter)
 	if len(keptGraphs) == 0 {
 		log.Print("\tno graphs remaining after pruning")
-	} else {
-		log.Printf("\ttotal number of graphs remaining: %d\n", len(keptGraphs))
-		log.Printf("\ttotal number of possible haplotypes found: %d\n", len(keptPaths))
+		return
 	}
+	log.Printf("\ttotal number of graphs remaining: %d\n", len(keptGraphs))
+	log.Printf("\ttotal number of possible haplotypes found: %d\n", len(keptPaths))
 	proc.info.Store = keptGraphs
 	proc.foundPaths = keptPaths
 }
