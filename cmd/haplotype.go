@@ -1,23 +1,3 @@
-// Copyright © 2017 Will Rowe <will.rowe@stfc.ac.uk>
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-
 package cmd
 
 import (
@@ -91,6 +71,7 @@ func runHaplotype() {
 		log.SetOutput(os.Stdout)
 	}
 	// start sub command
+	start := time.Now()
 	log.Printf("i am groot (version %s)", version.VERSION)
 	log.Printf("starting the haplotype subcommand")
 	// check the supplied files and then log some stuff
@@ -112,7 +93,7 @@ func runHaplotype() {
 	log.Printf("\twindow size used in indexing: %d\n", info.Index.WindowSize)
 	log.Print("loading the graphs...")
 	log.Printf("\tnumber of weighted GFAs for haplotyping: %d", len(graphList))
-	log.Print("predicting the best paths through the graphs...")
+	log.Printf("\tnumber of k-mers projected onto graphs during sketching: %.0f\n", info.Sketch.TotalKmers)
 
 	// add the haplotype information to the existing groot runtime information
 	info.Haplotype = &pipeline.HaploCmd{
@@ -148,7 +129,7 @@ func runHaplotype() {
 		log.Printf("saving graphs and haplotype sequences...\n")
 		for graphID, g := range info.Store {
 			fileName := fmt.Sprintf("%v/groot-graph-%d-haplotype", *haploDir, graphID)
-			_, err := g.SaveGraphAsGFA(fileName + ".gfa")
+			_, err := g.SaveGraphAsGFA(fileName+".gfa", info.Haplotype.TotalKmers)
 			misc.ErrorCheck(err)
 			seqs, err := g.Graph2Seqs()
 			misc.ErrorCheck(err)
@@ -161,8 +142,7 @@ func runHaplotype() {
 		}
 		log.Printf("\tsaved files to\"%v/\"", *haploDir)
 	}
-
-	log.Println("finished")
+	log.Printf("finished in %s", time.Since(start))
 }
 
 // haplotypeParamCheck is a function to check user supplied parameters

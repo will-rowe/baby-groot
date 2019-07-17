@@ -1,23 +1,3 @@
-// Copyright © 2017 Will Rowe <will.rowe@stfc.ac.uk>
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-
 package cmd
 
 import (
@@ -39,9 +19,9 @@ import (
 var (
 	kmerSize      *int                                                             // size of k-mer
 	sketchSize    *int                                                             // size of MinHash sketch
-	kmvSketch     *bool                                                            // if true, MinHash uses KMV algorithm, if false, MinHash uses Bottom-K algorithm
 	windowSize    *int                                                             // length of query reads (used during alignment subcommand), needed as window length should ~= read length
 	jsThresh      *float64                                                         // minimum Jaccard similarity for LSH forest query
+	kmvSketch     *bool                                                            // use the K-Minimum Values MinHash algorithm instead of the K-Hash Functions
 	msaDir        *string                                                          // directory containing the input MSA files
 	msaList       []string                                                         // the collected MSA files
 	outDir        *string                                                          // directory to save index files and log to
@@ -65,9 +45,9 @@ var indexCmd = &cobra.Command{
 func init() {
 	kmerSize = indexCmd.Flags().IntP("kmerSize", "k", 21, "size of k-mer")
 	sketchSize = indexCmd.Flags().IntP("sketchSize", "s", 42, "size of MinHash sketch")
-	kmvSketch = indexCmd.Flags().Bool("kmvSketch", false, "if set, MinHash uses KMV algorithm, otherwise MinHash uses Bottom-K algorithm")
 	windowSize = indexCmd.Flags().IntP("windowSize", "w", 100, "size of window to sketch graph traversals with")
 	jsThresh = indexCmd.Flags().Float64P("jsThresh", "j", 0.99, "minimum Jaccard similarity for a seed to be recorded")
+	kmvSketch = indexCmd.Flags().Bool("kmv", false, "use the KMV MinHash algorithm instead of KHF")
 	msaDir = indexCmd.Flags().StringP("msaDir", "i", "", "directory containing the clustered references (MSA files) - required")
 	outDir = indexCmd.PersistentFlags().StringP("outDir", "o", defaultOutDir, "directory to save index files to")
 	indexCmd.MarkFlagRequired("msaDir")
@@ -92,6 +72,7 @@ func runIndex() {
 	}
 
 	// start the index  sub command
+	start := time.Now()
 	log.Printf("i am groot (version %s)", version.VERSION)
 	log.Printf("starting the index subcommand")
 
@@ -104,10 +85,9 @@ func runIndex() {
 	if *kmvSketch {
 		log.Printf("\tMinHash algorithm: K-Minimum Values")
 	} else {
-		log.Printf("\tMinHash algorithm: Bottom-K")
+		log.Printf("\tMinHash algorithm: K-Hash Functions")
 	}
 	log.Printf("\tgraph window size: %d", *windowSize)
-	log.Printf("\tnumber of MSA files found: %d", len(msaList))
 
 	// record the runtime information for the index sub command
 	info := &pipeline.Info{
@@ -145,23 +125,29 @@ func runIndex() {
 	indexingPipeline.Run()
 	log.Printf("saving index files to \"%v/groot.index\"...", *outDir)
 	misc.ErrorCheck(info.Dump(*outDir + "/groot.index"))
-	log.Println("finished")
+	log.Printf("finished in %s", time.Since(start))
 }
 
 // indexParamCheck is a function to check user supplied parameters
 func indexParamCheck() error {
+
+	// check the supplied directory is accessible etc.
 	log.Printf("\tdirectory containing MSA files: %v", *msaDir)
 	misc.ErrorCheck(misc.CheckDir(*msaDir))
-	// check the we have received some MSA files
-	msas, err := filepath.Glob(*msaDir + "/*.msa")
+
+	// check there are some files with the msa extension TODO: this can be better...
+	msas, err := filepath.Glob(*msaDir + "/cluster*.msa")
 	if err != nil {
-		return fmt.Errorf("can't find any MSAs in the supplied directory")
+		return fmt.Errorf("no MSA files in the supplied directory (must be named cluster-DD.msa)")
 	}
-	log.Printf("\tnumber of MSA files: %d", len(msas))
+
+	// check the file accessibility and add to the pile
 	for _, msa := range msas {
 		misc.ErrorCheck(misc.CheckFile(msa))
 		msaList = append(msaList, msa)
 	}
+	log.Printf("\tnumber of MSA files: %d", len(msas))
+
 	// TODO: check the supplied arguments to make sure they don't conflict with each other eg:
 	if *kmerSize > *windowSize {
 		return fmt.Errorf("supplied k-mer size greater than read length")

@@ -113,16 +113,26 @@ func (LSHforest *LSHforest) Load(data []byte) error {
 
 // Index transfers the contents of each initialHashTable to the hashTable arrays so they can be sorted and searched
 func (LSHforest *LSHforest) Index() {
-	// iterate over the empty indexed hash tables
+
+	// make sure the LSH Forest is empty
+	LSHforest.hashTables = make([]hashTable, LSHforest.L)
 	for i := range LSHforest.hashTables {
+		LSHforest.hashTables[i] = make(hashTable, 0)
+	}
+
+	// iterate over the empty hash tables
+	for i := range LSHforest.hashTables {
+
 		// transfer contents from the corresponding bucket in the initial hash table
 		for stringifiedSketch, keys := range LSHforest.InitHashTables[i] {
 			LSHforest.hashTables[i] = append(LSHforest.hashTables[i], bucket{stringifiedSketch, keys})
 		}
+
 		// sort the new hashtable and store it in the corresponding slot in the indexed hash tables
 		sort.Sort(LSHforest.hashTables[i])
-		// clear the initial hashtable that has just been processed
-		LSHforest.InitHashTables[i] = make(initialHashTable)
+
+		// clear the initial hashtable that has just been processed (have commented this out, as this was preventing re-use of the index)
+		//LSHforest.InitHashTables[i] = make(initialHashTable)
 	}
 }
 

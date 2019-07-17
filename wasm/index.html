@@ -250,12 +250,11 @@
     // memoryBytes is an Uint8Array pointing to the webassembly linear memory.
     let memoryBytes, mod, inst, bytes;
     const go = new Go();
-    WebAssembly.instantiateStreaming(
-            fetch("bg.wasm", {cache: 'no-cache'}), go.importObject).then((result) => {
-            mod = result.module;
-            inst = result.instance;
-            memoryBytes = new Uint8Array(inst.exports.mem.buffer);
-            run();
+    WebAssembly.instantiateStreaming(fetch("bg.wasm", {cache: 'no-cache'}), go.importObject).then((result) => {
+      mod = result.module;
+      inst = result.instance;
+      memoryBytes = new Uint8Array(inst.exports.mem.buffer);
+      run();
     });
     statusUpdate('status', 'GROOT is ready!');
     async function run() {

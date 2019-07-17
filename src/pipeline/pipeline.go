@@ -92,6 +92,7 @@ type HaploCmd struct {
 	Cutoff        float64
 	MinIterations int
 	MaxIterations int
+	TotalKmers    int
 	HaploDir      string
 }
 

@@ -31,8 +31,8 @@ TEST PARAMETERS
 */
 var indexCmd = &IndexCmd{
 	KmerSize:   31,
-	SketchSize: 10,
-	KMVsketch:  false,
+	SketchSize: 100,
+	KMVsketch:  true,
 	JSthresh:   1.0,
 	WindowSize: 100,
 	IndexDir:   "test-data/tmp",

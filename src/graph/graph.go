@@ -15,6 +15,7 @@ import (
 
 // GrootGraph is the variation graph implementation used by GROOT
 type GrootGraph struct {
+	sync.RWMutex // lock the graph for read/write access (only used to increment the KmerTotal currently)
 	GrootVersion string
 	GraphID      int
 	SortedNodes  []*GrootGraphNode // essentially, this is the graph - a topologically sorted array of nodes
@@ -25,7 +26,6 @@ type GrootGraph struct {
 	EMiterations int               // the number of EM iterations ran
 	alpha        []float64         // indices match the Paths
 	abundances   map[int]float64   // abundances of kept paths, relative to total k-mers processed during sketching
-	graphLock    sync.RWMutex      // lock the graph for read/write access (only used to increment the KmerTotal currently)
 	grootPaths   grootGraphPaths   // an explicit path through the graph
 }
 
@@ -585,7 +585,7 @@ func (GrootGraph *GrootGraph) Graph2Seqs() (map[int][]byte, error) {
 
 // IncrementKmerCount is a method to increment the counter for the number of kmers projected onto the graph
 func (GrootGraph *GrootGraph) IncrementKmerCount(inc float64) {
-	GrootGraph.graphLock.Lock()
+	GrootGraph.Lock()
 	GrootGraph.KmerTotal += inc
-	GrootGraph.graphLock.Unlock()
+	GrootGraph.Unlock()
 }

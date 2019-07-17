@@ -51,19 +51,23 @@ type Key struct {
 
 // RunMinHash is a method to create a minhash sketch for the sequence
 func (Sequence *Sequence) RunMinHash(kmerSize, sketchSize int, kmv bool, bf *minhash.BloomFilter) ([]uint64, error) {
-	// create the MinHash, using the specified algorithm flavour
+
+	// create the MinHash data structure, using the specified algorithm flavour
 	var mh minhash.MinHash
 	if kmv {
-		mh = minhash.NewKMVsketch(kmerSize, sketchSize)
+		mh = minhash.NewKMVsketch(uint(kmerSize), uint(sketchSize))
 	} else {
-		mh = minhash.NewBottomKsketch(kmerSize, sketchSize, bf)
+		mh = minhash.NewKHFsketch(uint(kmerSize), uint(sketchSize))
 	}
-	// use the add method to initate rolling ntHash and populate the MinHash
-	err := mh.Add(Sequence.Seq)
+
+	// use the AddSequence method to initate rolling ntHash and populate the MinHash
+	err := mh.AddSequence(Sequence.Seq)
+
 	// get the sketch
 	sketch := mh.GetSketch()
+
 	// if the sketch isn't at capacity (in the case of BottomK sketches), fill up the remainder with 0s
-	if !kmv && len(sketch) != sketchSize {
+	if kmv && len(sketch) != sketchSize {
 		padding := make([]uint64, sketchSize-len(sketch))
 		for i := 0; i < len(padding); i++ {
 			padding[i] = 0
@@ -71,6 +75,7 @@ func (Sequence *Sequence) RunMinHash(kmerSize, sketchSize int, kmv bool, bf *min
 		sketch = append(sketch, padding...)
 
 	}
+
 	// return the MinHash sketch and any error
 	return sketch, err
 }

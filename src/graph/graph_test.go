@@ -101,29 +101,6 @@ func TestFindMarkovPaths(t *testing.T) {
 	_ = grootGraph
 }
 
-// test Store dump/load
-func TestGraphStore(t *testing.T) {
-	myGFA, err := LoadGFA(inputFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	grootGraph, err := CreateGrootGraph(myGFA, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	graphStore := make(Store)
-	graphStore[0] = grootGraph
-	if err := graphStore.Dump("./test.grootGraph"); err != nil {
-		t.Fatal(err)
-	}
-	if err := graphStore.Load("./test.grootGraph"); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Remove("./test.grootGraph"); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // test SaveGraphAsGFA to save a gfa
 func TestGraphDump(t *testing.T) {
 	myGFA, err := LoadGFA(inputFile)
@@ -136,7 +113,7 @@ func TestGraphDump(t *testing.T) {
 	}
 	// add a dummy read so that the graph will write
 	grootGraph.SortedNodes[0].IncrementKmerFreq(100.0)
-	written, err := grootGraph.SaveGraphAsGFA("./tmp-graph.gfa")
+	written, err := grootGraph.SaveGraphAsGFA("./tmp-graph.gfa", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,23 +1,3 @@
-// Copyright © 2017 Will Rowe <will.rowe@stfc.ac.uk>
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-
 package cmd
 
 import (
@@ -66,7 +46,7 @@ func init() {
 	fasta = sketchCmd.Flags().Bool("fasta", false, "if set, the input will be treated as fasta sequence(s) (experimental feature)")
 	bloomFilter = sketchCmd.Flags().Bool("bloomFilter", false, "if set, a bloom filter will be used to stop unique k-mers being added to sketches")
 	minKmerCoverage = sketchCmd.Flags().IntP("minKmerCov", "k", 1, "minimum k-mer coverage per base of a segment")
-	minBaseCoverage = sketchCmd.Flags().Float64P("minBaseCov", "c", 0.1, "percentage of the graph segment bases that must have reads align")
+	minBaseCoverage = sketchCmd.Flags().Float64P("minBaseCov", "c", 0.1, "minimum proportion of graph segment bases that must be covered by reads")
 	graphDir = sketchCmd.PersistentFlags().StringP("graphDir", "o", defaultGraphDir, "directory to save variation graphs to")
 	sketchCmd.MarkFlagRequired("indexDir")
 	RootCmd.AddCommand(sketchCmd)
@@ -92,6 +72,7 @@ func runSketch() {
 	}
 
 	// start the sketch sub command
+	start := time.Now()
 	log.Printf("i am groot (version %s)", version.VERSION)
 	log.Printf("starting the sketch subcommand")
 
@@ -103,8 +84,8 @@ func runSketch() {
 	} else {
 		log.Printf("\tignoring unique k-mers: false")
 	}
-	log.Printf("\tminimum k-mer frequency: %d", *minKmerCoverage)
-	log.Printf("\tminimum base coverage: %0.0f%%", *minBaseCoverage*100)
+	log.Printf("\tminimum k-mer coverage per graph base: %d", *minKmerCoverage)
+	log.Printf("\tminimum graph segment coverage: %0.0f%%", *minBaseCoverage*100)
 	log.Printf("\tprocessors: %d", *proc)
 	for _, file := range *fastq {
 		log.Printf("\tinput file: %v", file)
@@ -159,18 +140,17 @@ func runSketch() {
 	alignmentPipeline.AddProcesses(dataStream, fastqHandler, fastqChecker, readMapper, graphPruner)
 	log.Printf("\tnumber of processes added to the alignment pipeline: %d\n", alignmentPipeline.GetNumProcesses())
 	alignmentPipeline.Run()
+
+	// once the sketching pipeline is finished, process the graph store and write the graphs to disk
 	if len(info.Store) != 0 {
 		log.Printf("saving graphs...\n")
 		for graphID, g := range info.Store {
 			fileName := fmt.Sprintf("%v/groot-graph-%d.gfa", *graphDir, graphID)
-			_, err := g.SaveGraphAsGFA(fileName)
+			_, err := g.SaveGraphAsGFA(fileName, int(info.Sketch.TotalKmers))
 			misc.ErrorCheck(err)
 		}
-		log.Printf("updating index with sketching info from this run...\n")
-		misc.ErrorCheck(info.Dump(info.Index.IndexDir + "/groot.index"))
-		log.Printf("\tsaved index info to \"%v/groot.index\"", info.Index.IndexDir)
 	}
-	log.Println("finished")
+	log.Printf("finished in %s", time.Since(start))
 }
 
 // alignParamCheck is a function to check user supplied parameters

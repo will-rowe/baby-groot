@@ -31,7 +31,7 @@ func TestHaplotyping(t *testing.T) {
 
 	for graphID, g := range testParameters.Store {
 		fileName := fmt.Sprintf("test-data/tmp/groot-graph-%d-haplotype", graphID)
-		_, err := g.SaveGraphAsGFA(fileName + ".gfa")
+		_, err := g.SaveGraphAsGFA(fileName+".gfa", 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -54,7 +54,7 @@ func TestHaplotyping(t *testing.T) {
 	correctPath := false
 	for _, path := range foundPaths {
 		t.Log(path)
-		if path == "argannot~~~(Bla)OXA-90~~~EU547443:1-825	0.18" {
+		if path == "argannot~~~(Bla)OXA-90~~~EU547443:1-825" {
 			correctPath = true
 		}
 	}

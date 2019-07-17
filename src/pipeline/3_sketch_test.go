@@ -51,7 +51,7 @@ func TestSketching(t *testing.T) {
 	}
 	for graphID, g := range testParameters.Store {
 		fileName := fmt.Sprintf("test-data/tmp/groot-graph-%d.gfa", graphID)
-		_, err := g.SaveGraphAsGFA(fileName)
+		_, err := g.SaveGraphAsGFA(fileName, int(testParameters.Sketch.TotalKmers))
 		misc.ErrorCheck(err)
 	}
 }

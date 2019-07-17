@@ -71,13 +71,13 @@ func TestMinHash(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not generate FASTQ read using NewFASTQread")
 	}
-	// sketch using kmv
+	// sketch using KHF MinHash
 	if sketch, err := read.RunMinHash(kmerSize, sketchSize, true, nil); err != nil {
 		t.Fatal(err)
 	} else {
 		t.Log(sketch)
 	}
-	// sketch using bottom k
+	// sketch using KMV MinHash
 	if sketch, err := read.RunMinHash(kmerSize, sketchSize, false, nil); err != nil {
 		t.Fatal(err)
 	} else {

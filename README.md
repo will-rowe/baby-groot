@@ -47,11 +47,11 @@ The basic idea behind BABY GROOT is:
 
 The original [GROOT paper](https://academic.oup.com/bioinformatics/article/34/21/3601/4995843) was published in Bioinformatics last year. BABY GROOT has seen a few changes:
 
-* replaced existing hash functions with ntHash
-  * also, now only consider canonical k-mers
+* replaced existing hash functions
+  * now only consider canonical k-mers
 * added extra sketching algorithms for mapping reads to graph traversals
-  * added bottom-k minhash algorithm, in addition to existing KMV minhash
-  * added bloom filter to stop unique k-mers being added to sketches
+  * added K-Minimum Values MinHash algorithm, in addition to existing K-Hash Functions MinHash
+  * added a Bloom filter to stop unique k-mers being added to sketches
 * removed exact alignment step and BAM outputs
 * replaced align subcommand with sketch
 * replaced report subcommand with haplotype
@@ -68,12 +68,14 @@ The original [GROOT paper](https://academic.oup.com/bioinformatics/article/34/21
 
 * additional support for variable read lengths and long reads
   * I'm thinking that some sort of windowing strategy of the query sequences may work out better than containment, now that we're not doing exact alignment
-* additional sketching algorithms to benchmark against existing KMV, Bottom-K, Bloom Filter
+* additional sketching algorithms to benchmark against existing KMV, KHF, Bloom Filter
 * add in phasing and paired-end information for informing path prediction during haplotype recovery
 * improving node re-weighting scheme during MCMC path finding
 * add in the option to augment graphs with new paths during mapping
 * test out MCMC as alternative to EM
+  * investigate node re-weighting schemes
 * improve WASM
   * currently only small file sizes are supported before browser complains
   * need to improve javascript data streaming function
   * add in more control over runtime parameters for BABY-GROOT
+  

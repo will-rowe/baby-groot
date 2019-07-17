@@ -15,17 +15,17 @@ import (
 type Store map[int]*GrootGraph
 
 // SaveGraphAsGFA is a method to convert and save a GrootGraph in GFA format
-func (GrootGraph *GrootGraph) SaveGraphAsGFA(fileName string) (int, error) {
+func (GrootGraph *GrootGraph) SaveGraphAsGFA(fileName string, totalKmers int) (int, error) {
 	// a flag to prevent dumping graphs which had no reads map
 	graphUsed := false
 	t := time.Now()
 	stamp := fmt.Sprintf("variation graph created by groot (version %v) at: %v", version.VERSION, t.Format("Mon Jan _2 15:04:05 2006"))
-	msg := []byte("this graph is approximately weighted using k-mer frequencies from projected read sketches")
+	msg := fmt.Sprintf("this graph is approximately weighted using k-mer frequencies from projected read sketches (total k-mers projected across all graphs: %d)", totalKmers)
 	// create a GFA instance
 	newGFA := gfa.NewGFA()
 	_ = newGFA.AddVersion(1)
 	newGFA.AddComment([]byte(stamp))
-	newGFA.AddComment(msg)
+	newGFA.AddComment([]byte(msg))
 	// transfer all the GrootGraphNode content to the GFA instance
 	for _, node := range GrootGraph.SortedNodes {
 		// BABY GROOT - some nodes will be nil after pruning, ignore these

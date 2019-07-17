@@ -6,12 +6,14 @@ package pipeline
 
 import (
 	"log"
+	"regexp"
+	"strconv"
 	"sync"
 
 	"github.com/will-rowe/baby-groot/src/graph"
 	"github.com/will-rowe/baby-groot/src/misc"
+	"github.com/will-rowe/baby-groot/src/version"
 	"github.com/will-rowe/gfa"
-	"github.com/will-rowe/hulk/src/version"
 )
 
 // GFAreader is a pipeline process that reads in the weighted GFAs
@@ -37,6 +39,18 @@ func (proc *GFAreader) Run() {
 	for i, gfaFile := range proc.input {
 		gfaObj, err := graph.LoadGFA(gfaFile)
 		misc.ErrorCheck(err)
+
+		// grab the total k-mer count across all the graphs
+		if i == 0 {
+			commentLines := gfaObj.PrintComments()
+			re := regexp.MustCompile(`graphs: (\d+)\)`)
+			matches := re.FindStringSubmatch(commentLines)
+			kmerCount, err := strconv.Atoi((matches[1]))
+			misc.ErrorCheck((err))
+			proc.info.Haplotype.TotalKmers = kmerCount
+		}
+
+		// convert GFAs to GrootGraph and send them on to the path finder
 		wg.Add(1)
 		go func(gfaID int, g *gfa.GFA) {
 			defer wg.Done()
