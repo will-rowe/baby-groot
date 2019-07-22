@@ -83,7 +83,7 @@ func runHaplotype() {
 	log.Printf("\tprocessors: %d", *proc)
 	log.Print("loading the index...")
 	info := new(pipeline.Info)
-	misc.ErrorCheck(info.Load(*indexDirectory + "/groot.index"))
+	misc.ErrorCheck(info.Load(*indexDir + "/groot.gg"))
 	if info.Version != version.VERSION {
 		misc.ErrorCheck(fmt.Errorf("the groot index was created with a different version of groot (you are currently using version %v)", version.VERSION))
 	}
@@ -96,7 +96,7 @@ func runHaplotype() {
 	log.Printf("\tnumber of k-mers projected onto graphs during sketching: %.0f\n", info.Sketch.TotalKmers)
 
 	// add the haplotype information to the existing groot runtime information
-	info.Haplotype = &pipeline.HaploCmd{
+	info.Haplotype = pipeline.HaploCmd{
 		MinIterations: *minIterations,
 		MaxIterations: *maxIterations,
 		HaploDir:      *haploDir,
@@ -148,7 +148,7 @@ func runHaplotype() {
 // haplotypeParamCheck is a function to check user supplied parameters
 func haplotypeParamCheck() error {
 	misc.ErrorCheck(misc.CheckDir(*indexDirectory))
-	misc.ErrorCheck(misc.CheckFile(*indexDirectory + "/groot.index"))
+	misc.ErrorCheck(misc.CheckFile(*indexDirectory + "/groot.gg"))
 	misc.ErrorCheck(misc.CheckDir(*graphDirectory))
 	graphs, err := filepath.Glob(*graphDirectory + "/groot-graph-*.gfa")
 	if err != nil {

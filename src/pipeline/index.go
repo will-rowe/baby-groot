@@ -154,10 +154,10 @@ func (proc *SketchIndexer) Run() {
 		misc.ErrorCheck(index.Add(window))
 	}
 	numHF, numBucks := index.Settings()
+	log.Printf("\tnumber of LSH Forest buckets: %d\n", numBucks)
 	log.Printf("\tnumber of hash functions per bucket: %d\n", numHF)
-	log.Printf("\tnumber of buckets: %d\n", numBucks)
-	log.Printf("\tnumber of sketches added: %d\n", sketchCount)
+	log.Printf("\tnumber of sketches added to the LSH Forest index: %d\n", sketchCount)
 
 	// add the index to the pipeline info
-	proc.info.Db = index
+	proc.info.AttachDB(index)
 }

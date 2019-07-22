@@ -8,7 +8,10 @@ func TestIndexBuild(t *testing.T) {
 	if err := setupTmpDir(); err != nil {
 		t.Fatal(err)
 	}
-	if err := testParameters.Dump("test-data/tmp/groot.index"); err != nil {
+	if err := testParameters.SaveDB("test-data/tmp/groot.lshf"); err != nil {
+		t.Fatal(err)
+	}
+	if err := testParameters.Dump("test-data/tmp/groot.gg"); err != nil {
 		t.Fatal(err)
 	}
 	indexingPipeline := NewPipeline()
@@ -29,7 +32,10 @@ func TestIndexBuild(t *testing.T) {
 		t.Fatal("wrong number of processes in pipeline")
 	}
 	indexingPipeline.Run()
-	if err := testParameters.Dump("test-data/tmp/groot.index"); err != nil {
+	if err := testParameters.SaveDB("test-data/tmp/groot.lshf"); err != nil {
+		t.Fatal(err)
+	}
+	if err := testParameters.Dump("test-data/tmp/groot.gg"); err != nil {
 		t.Fatal(err)
 	}
 }

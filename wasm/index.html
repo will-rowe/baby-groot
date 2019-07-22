@@ -148,16 +148,18 @@
         statusUpdate('status', 'please get a more recent browser!');
       }
 
+      // load the default index
+      getIndex("groot-files/groot.index");
+
       // turn the spinner off
       document.getElementById("spinner").setAttribute('hidden', '');
     }
 
-    // listen out for index selection
-    document.getElementById("indexSelecter").addEventListener('click', function() {
-      var selectedIndex = document.getElementById("indexSelecter").selectedOptions;
-      console.log(selectedIndex);
-      getIndex(selectedIndex[0].value);
-    });
+    // listen out for index selection -- TODO: I don't think this isn't listening to the right selecter
+    //document.getElementById("indexSelecter").addEventListener('click', function() {
+    //  var selectedIndex = document.getElementById("indexSelecter").selectedOptions;
+    //  getIndex(selectedIndex[0].value);
+    //});
 
     // listen out for input checker
     document.getElementById("inputChecker").addEventListener('click', function() {

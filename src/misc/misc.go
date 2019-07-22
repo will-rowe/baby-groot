@@ -19,7 +19,7 @@ const HASH_SIZE = 8
 // ErrorCheck is a function to throw error to the log and exit the program
 func ErrorCheck(msg error) {
 	if msg != nil {
-		log.Fatal("encountered error: ", msg)
+		log.Fatal("ERROR --> ", msg)
 	}
 }
 

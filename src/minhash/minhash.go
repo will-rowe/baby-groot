@@ -6,13 +6,39 @@ const CANONICAL bool = true
 
 // MinHash is an interface to group the different flavours of MinHash implemented here
 type MinHash interface {
-	mhFlavour
-	GetSimilarity(mhFlavour) (float64, error)
-}
-
-type mhFlavour interface {
 	AddSequence([]byte) error
 	GetSketch() []uint64
+}
+
+// GetReadSketch is a function to sketch a read sequence
+func GetReadSketch(seq []byte, kmerSize, sketchSize uint, kmv bool) ([]uint64, error) {
+
+	// create the MinHash data structure, using the specified algorithm flavour
+	var mh MinHash
+	if kmv {
+		mh = NewKMVsketch(uint(kmerSize), uint(sketchSize))
+	} else {
+		mh = NewKHFsketch(uint(kmerSize), uint(sketchSize))
+	}
+
+	// use the AddSequence method to populate the MinHash
+	err := mh.AddSequence(seq)
+
+	// get the sketch
+	sketch := mh.GetSketch()
+
+	// if the sketch isn't at capacity (in the case of BottomK sketches), fill up the remainder with 0s
+	if kmv && len(sketch) != int(sketchSize) {
+		padding := make([]uint64, int(sketchSize)-len(sketch))
+		for i := 0; i < len(padding); i++ {
+			padding[i] = 0
+		}
+		sketch = append(sketch, padding...)
+
+	}
+
+	// return the MinHash sketch and any error
+	return sketch, err
 }
 
 // seqNT4table is used to convert "ACGTN" to 01234 - from minimap2

@@ -4,15 +4,22 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/will-rowe/baby-groot/src/lshforest"
 	"github.com/will-rowe/baby-groot/src/misc"
 )
 
 func TestSketching(t *testing.T) {
 	// load the files from the previous tests
 	testParameters := new(Info)
-	if err := testParameters.Load("test-data/tmp/groot.index"); err != nil {
+	if err := testParameters.Load("test-data/tmp/groot.gg"); err != nil {
 		t.Fatal(err)
 	}
+	lshf := lshforest.NewLSHforest(testParameters.Index.SketchSize, testParameters.Index.JSthresh)
+	if err := lshf.Load("test-data/tmp/groot.lshf"); err != nil {
+		t.Fatal(err)
+	}
+	testParameters.AttachDB(lshf)
+
 	// run the pipeline
 	sketchingPipeline := NewPipeline()
 	dataStream := NewDataStreamer(testParameters)
@@ -30,6 +37,7 @@ func TestSketching(t *testing.T) {
 		t.Fatal("wrong number of processes in pipeline")
 	}
 	sketchingPipeline.Run()
+
 	// check that the right number of reads mapped
 	readStats := readMapper.CollectReadStats()
 	t.Logf("total number of test reads = %d", readStats[0])
@@ -46,7 +54,7 @@ func TestSketching(t *testing.T) {
 	if correctPath != true {
 		t.Fatal("sketching did not identify correct allele in graph")
 	}
-	if err := testParameters.Dump("test-data/tmp/groot.index"); err != nil {
+	if err := testParameters.Dump("test-data/tmp/groot.gg"); err != nil {
 		t.Fatal(err)
 	}
 	for graphID, g := range testParameters.Store {

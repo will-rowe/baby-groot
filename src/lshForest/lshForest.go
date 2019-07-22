@@ -3,6 +3,7 @@ package lshforest
 
 import (
 	"fmt"
+	"io/ioutil"
 	"sort"
 	"sync"
 
@@ -43,7 +44,7 @@ type bucket struct {
 // this is populated during indexing -- it is a slice of buckets and can be sorted
 type hashTable []bucket
 
-//methods to satisfy the sort interface
+// methods to satisfy the sort interface
 func (h hashTable) Len() int           { return len(h) }
 func (h hashTable) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
 func (h hashTable) Less(i, j int) bool { return h[i].stringifiedSketch < h[j].stringifiedSketch }
@@ -90,6 +91,7 @@ func (LSHforest *LSHforest) Add(key *seqio.Key) error {
 	return nil
 }
 
+/*
 // Load is a method to populate an LSH Forest instance using a byte slice from msgPack
 func (LSHforest *LSHforest) Load(data []byte) error {
 	if len(data) == 0 {
@@ -103,6 +105,45 @@ func (LSHforest *LSHforest) Load(data []byte) error {
 	if len(LSHforest.InitHashTables) < 1 {
 		return fmt.Errorf("could not load the LSH Forest")
 	}
+	// index the lshForest
+	LSHforest.Index()
+	if len(LSHforest.hashTables) < 1 {
+		return fmt.Errorf("could not index the LSH Forest")
+	}
+	return nil
+}
+*/
+
+// Dump is a method to dump the LSHforest to file
+func (LSHforest *LSHforest) Dump(path string) error {
+	b, err := msgpack.Marshal(LSHforest)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path, b, 0644)
+}
+
+// Load is a method to load LSHforest from file
+func (LSHforest *LSHforest) Load(path string) error {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	if len(data) == 0 {
+		return fmt.Errorf("no data received for LSH Forest Load()")
+	}
+	err = msgpack.Unmarshal(data, LSHforest)
+	if err != nil {
+		return err
+	}
+	LSHforest.sketchSize = LSHforest.K * LSHforest.L
+	if LSHforest.sketchSize < 1 {
+		return fmt.Errorf("loaded LSH Forest has no bins")
+	}
+	if len(LSHforest.InitHashTables) < 1 {
+		return fmt.Errorf("LSH Forest is corrupted")
+	}
+
 	// index the lshForest
 	LSHforest.Index()
 	if len(LSHforest.hashTables) < 1 {

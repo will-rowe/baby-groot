@@ -45,10 +45,11 @@ func (s *GrootWASM) setupInitMem2Cb() {
 	// And a pointer to that slice is passed back to the browser.
 	s.initMem2Cb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		length := args[0].Int()
-		s.console.Call("log", "got index - size:", length)
+		s.console.Call("log", "initialising memory for the GROOT index (index size: ", length, ")")
 		s.inBuf2 = make([]uint8, length)
 		hdr := (*reflect.SliceHeader)(unsafe.Pointer(&s.inBuf2))
 		ptr := uintptr(unsafe.Pointer(hdr.Data))
+		s.console.Call("log", "setting web assembly linear memory")
 		js.Global().Call("gotMem", ptr)
 		return nil
 	})
@@ -92,6 +93,7 @@ func (s *GrootWASM) setupInputCheckerCb() {
 
 		// read the INDEX
 		s.info = new(pipeline.Info)
+		s.info.NumProc = 1
 		if err := s.info.LoadFromBytes(s.inBuf2); err != nil {
 			s.statusUpdate("does not look like a GROOT index!")
 			return nil
@@ -100,13 +102,13 @@ func (s *GrootWASM) setupInputCheckerCb() {
 
 		/////////////////////////////////////////////////
 		// TODO: have these parameters set by the user
-		s.info.Sketch = &pipeline.SketchCmd{
+		s.info.Sketch = pipeline.SketchCmd{
 			MinKmerCoverage: 1,
-			MinBaseCoverage: 1.0,
+			MinBaseCoverage: 0.99,
 			BloomFilter:     false,
 			Fasta:           false,
 		}
-		s.info.Haplotype = &pipeline.HaploCmd{
+		s.info.Haplotype = pipeline.HaploCmd{
 			Cutoff:        0.05,
 			MaxIterations: 10000,
 			MinIterations: 50,

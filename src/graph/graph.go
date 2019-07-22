@@ -408,7 +408,7 @@ func (GrootGraph *GrootGraph) IncrementSubPath(subPath []uint64, offSet int, win
 
 // Prune is a method to remove paths and segments from the graph if they have insufficient coverage
 // returns false if pruning would result in no paths through the graph remaining
-func (GrootGraph *GrootGraph) Prune(minKmerCoverage, minBaseCoverage float64) bool {
+func (GrootGraph *GrootGraph) Prune(minKmerCoverage, minSegmentCoverage float64) bool {
 	removePathID := make(map[int]struct{})
 	removeNode := make(map[uint64]struct{})
 
@@ -418,7 +418,7 @@ func (GrootGraph *GrootGraph) Prune(minKmerCoverage, minBaseCoverage float64) bo
 		baseCoverage := float64(node.Coverage.PopCount()) / float64(len(node.Sequence))
 		//nodeCoverage := node.KmerFreq / float64(len(node.Sequence))
 		nodeCoverage := node.KmerFreq
-		if nodeCoverage < minKmerCoverage || baseCoverage < minBaseCoverage {
+		if nodeCoverage < minKmerCoverage || baseCoverage < minSegmentCoverage {
 			// add the segmentID and the contained pathIDs to the removal lis
 			for _, id := range node.PathIDs {
 				removePathID[id] = struct{}{}
@@ -474,11 +474,14 @@ func (GrootGraph *GrootGraph) Prune(minKmerCoverage, minBaseCoverage float64) bo
 
 // GetNode takes a nodeID and returns a pointer to the corresponding node struct in the graph
 func (GrootGraph *GrootGraph) GetNode(nodeID uint64) (*GrootGraphNode, error) {
+	GrootGraph.Lock()
+
 	// lookup the node in the graph
 	NodeLookup, ok := GrootGraph.NodeLookup[nodeID]
 	if !ok {
 		return nil, fmt.Errorf("can't find node %d in graph", nodeID)
 	}
+	GrootGraph.Unlock()
 	return GrootGraph.SortedNodes[NodeLookup], nil
 }
 

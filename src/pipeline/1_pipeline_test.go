@@ -29,23 +29,23 @@ var gfaList = []string{"test-data/tmp/groot-graph-0.gfa"}
 /*
 TEST PARAMETERS
 */
-var indexCmd = &IndexCmd{
+var indexCmd = IndexCmd{
 	KmerSize:   31,
 	SketchSize: 100,
-	KMVsketch:  true,
-	JSthresh:   1.0,
+	KMVsketch:  false,
+	JSthresh:   0.99,
 	WindowSize: 100,
 	IndexDir:   "test-data/tmp",
 }
 
-var sketchCmd = &SketchCmd{
+var sketchCmd = SketchCmd{
 	MinKmerCoverage: 1,
 	MinBaseCoverage: 1.0,
 	BloomFilter:     false,
 	Fasta:           false,
 }
 
-var haploCmd = &HaploCmd{
+var haploCmd = HaploCmd{
 	Cutoff:        0.05,
 	MaxIterations: 10000,
 	MinIterations: 50,
@@ -53,6 +53,7 @@ var haploCmd = &HaploCmd{
 }
 
 var testParameters = &Info{
+	NumProc:   1,
 	Version:   version.VERSION,
 	Index:     indexCmd,
 	Sketch:    sketchCmd,

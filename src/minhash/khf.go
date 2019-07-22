@@ -95,7 +95,7 @@ func (mh *KHFsketch) GetSketch() []uint64 {
 }
 
 // GetSimilarity estimates the similarity between two k-mer sets based on the KHF sketch
-func (mh *KHFsketch) GetSimilarity(mh2 mhFlavour) (float64, error) {
+func (mh *KHFsketch) GetSimilarity(mh2 MinHash) (float64, error) {
 
 	// check this is a pair of KHF
 	if fmt.Sprintf("%T", mh) != fmt.Sprintf("%T", mh2) {

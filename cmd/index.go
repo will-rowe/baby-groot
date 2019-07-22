@@ -93,7 +93,7 @@ func runIndex() {
 	info := &pipeline.Info{
 		Version: version.VERSION,
 	}
-	info.Index = &pipeline.IndexCmd{
+	info.Index = pipeline.IndexCmd{
 		KmerSize:   *kmerSize,
 		SketchSize: *sketchSize,
 		KMVsketch:  *kmvSketch,
@@ -123,8 +123,9 @@ func runIndex() {
 	log.Printf("\tnumber of processes added to the indexing pipeline: %d\n", indexingPipeline.GetNumProcesses())
 	log.Print("creating graphs, sketching traversals and indexing...")
 	indexingPipeline.Run()
-	log.Printf("saving index files to \"%v/groot.index\"...", *outDir)
-	misc.ErrorCheck(info.Dump(*outDir + "/groot.index"))
+	log.Printf("writing index files in \"%v\"...", *outDir)
+	misc.ErrorCheck(info.SaveDB(*outDir + "/groot.lshf"))
+	misc.ErrorCheck(info.Dump(*outDir + "/groot.gg"))
 	log.Printf("finished in %s", time.Since(start))
 }
 
@@ -145,6 +146,9 @@ func indexParamCheck() error {
 	for _, msa := range msas {
 		misc.ErrorCheck(misc.CheckFile(msa))
 		msaList = append(msaList, msa)
+	}
+	if len(msas) == 0 {
+		return fmt.Errorf("no MSA files found that passed the file checks")
 	}
 	log.Printf("\tnumber of MSA files: %d", len(msas))
 

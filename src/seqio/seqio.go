@@ -60,7 +60,7 @@ func (Sequence *Sequence) RunMinHash(kmerSize, sketchSize int, kmv bool, bf *min
 		mh = minhash.NewKHFsketch(uint(kmerSize), uint(sketchSize))
 	}
 
-	// use the AddSequence method to initate rolling ntHash and populate the MinHash
+	// use the AddSequence method to populate the MinHash
 	err := mh.AddSequence(Sequence.Seq)
 
 	// get the sketch

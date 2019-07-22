@@ -10,7 +10,7 @@ func TestHaplotyping(t *testing.T) {
 
 	// load the files from the previous tests
 	testParameters := new(Info)
-	if err := testParameters.Load("test-data/tmp/groot.index"); err != nil {
+	if err := testParameters.Load("test-data/tmp/groot.gg"); err != nil {
 		t.Fatal(err)
 	}
 	haplotypingPipeline := NewPipeline()
@@ -63,7 +63,10 @@ func TestHaplotyping(t *testing.T) {
 	}
 
 	// remove the tmp files from all tests
-	if err := os.Remove("test-data/tmp/groot.index"); err != nil {
+	if err := os.Remove("test-data/tmp/groot.gg"); err != nil {
+		t.Fatal("indexing did not create graph file: ", err)
+	}
+	if err := os.Remove("test-data/tmp/groot.lshf"); err != nil {
 		t.Fatal("indexing did not create index file: ", err)
 	}
 	if err := os.Remove("test-data/tmp/groot-graph-0.gfa"); err != nil {

@@ -75,7 +75,7 @@ func (KMVsketch *KMVsketch) GetSketch() []uint64 {
 }
 
 // GetSimilarity estimates the similarity between two k-mer sets based on the KMV sketch
-func (mh1 *KMVsketch) GetSimilarity(mh2 mhFlavour) (float64, error) {
+func (mh1 *KMVsketch) GetSimilarity(mh2 MinHash) (float64, error) {
 
 	// check this is a pair of KMV
 	if fmt.Sprintf("%T", mh1) != fmt.Sprintf("%T", mh2) {

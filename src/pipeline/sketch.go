@@ -16,9 +16,9 @@ import (
 	"sync"
 
 	"github.com/will-rowe/baby-groot/src/graph"
-	"github.com/will-rowe/baby-groot/src/minhash"
 	"github.com/will-rowe/baby-groot/src/misc"
 	"github.com/will-rowe/baby-groot/src/seqio"
+	"github.com/will-rowe/hulk/src/helpers"
 )
 
 // DataStreamer is a pipeline process that streams data from STDIN/file
@@ -167,15 +167,18 @@ func (proc *FastqHandler) Run() {
 			if len(line) == 0 {
 				break
 			}
+
 			// check for chevron
 			if line[0] == 62 {
 				if l1 != nil {
+
 					// store current fasta entry (as FASTQ read)
 					l1[0] = 64
 					newRead, err := seqio.NewFASTQread(l1, l2, nil, nil)
 					if err != nil {
 						log.Fatal(err)
 					}
+
 					// send on the new read and reset the line stores
 					proc.output <- newRead
 				}
@@ -184,15 +187,18 @@ func (proc *FastqHandler) Run() {
 				l2 = append(l2, line...)
 			}
 		}
+
 		// flush final fasta
 		l1[0] = 64
 		newRead, err := seqio.NewFASTQread(l1, l2, nil, nil)
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		// send on the new read and reset the line stores
 		proc.output <- newRead
 	} else {
+
 		// grab four lines and create a new FASTQread struct from them - perform some format checks and trim low quality bases
 		for line := range proc.input {
 			if l1 == nil {
@@ -203,11 +209,13 @@ func (proc *FastqHandler) Run() {
 				l3 = line
 			} else if l4 == nil {
 				l4 = line
+
 				// create fastq read
 				newRead, err := seqio.NewFASTQread(l1, l2, l3, l4)
 				if err != nil {
 					log.Fatal(err)
 				}
+
 				// send on the new read and reset the line stores
 				proc.output <- newRead
 				l1, l2, l3, l4 = nil, nil, nil, nil
@@ -216,16 +224,16 @@ func (proc *FastqHandler) Run() {
 	}
 }
 
-// FastqChecker is a process to quality check FASTQ reads
+// FastqChecker is a process to quality check FASTQ reads and send the sequence on for mapping
 type FastqChecker struct {
 	info   *Info
 	input  chan *seqio.FASTQread
-	output chan *seqio.FASTQread
+	output chan []byte
 }
 
 // NewFastqChecker is the constructor
 func NewFastqChecker(info *Info) *FastqChecker {
-	return &FastqChecker{info: info, output: make(chan *seqio.FASTQread, BUFFERSIZE)}
+	return &FastqChecker{info: info, output: make(chan []byte)}
 }
 
 // Connect is the method to join the input of this process with the output of FastqHandler
@@ -241,11 +249,14 @@ func (proc *FastqChecker) Run() {
 	rawCount, lengthTotal := 0, 0
 	for read := range proc.input {
 		rawCount++
+
 		// tally the length so we can report the mean
 		lengthTotal += len(read.Seq)
+
 		// send the read onwards for mapping
-		proc.output <- read
+		proc.output <- read.Seq
 	}
+
 	// check we have received reads & print stats
 	if rawCount == 0 {
 		misc.ErrorCheck(errors.New("no fastq reads received"))
@@ -259,7 +270,7 @@ func (proc *FastqChecker) Run() {
 // ReadMapper is a pipeline process to query the LSH database, map reads and project alignments onto graphs
 type ReadMapper struct {
 	info      *Info
-	input     chan *seqio.FASTQread
+	input     chan []byte
 	output    chan *graph.GrootGraph
 	readStats [3]int // corresponds to num. reads, total num. mapped, num. multimapped
 }
@@ -282,65 +293,39 @@ func (proc *ReadMapper) CollectReadStats() [3]int {
 // Run is the method to run this process, which satisfies the pipeline interface
 func (proc *ReadMapper) Run() {
 	defer close(proc.output)
-	// if requested, set up a bloom filter to prevent unique k-mers being included in sketches
-	var bf *minhash.BloomFilter
-	if proc.info.Sketch.BloomFilter {
-		bf = minhash.NewDefaultBloomFilter()
-	}
-	var wg sync.WaitGroup
-	collectionChan := make(chan *seqio.FASTQread)
+
+	// if requested, set up a bloom filter to prevent unique k-mers being included in sketches TODO: this isn't used yet
+	//var bf *minhash.BloomFilter
+	//if proc.info.Sketch.BloomFilter {
+	//	bf = minhash.NewDefaultBloomFilter()
+	//}
+
+	// set up the boss and minion pool, ready to find minimizers
+	theBoss, err := mapReads(proc.info)
+	helpers.ErrorCheck(err)
+
+	// start processing sequences
+	readCount := 0
 	for read := range proc.input {
-		// increment the read counter
-		proc.readStats[0]++
 
-		// map each read within a go routine
-		wg.Add(1)
-		go func(r *seqio.FASTQread) {
-			mapped := false
+		// add the read to the mapping queue
+		readCount++
+		theBoss.inputReads <- read
 
-			// get sketch for read
-			readSketch, err := r.RunMinHash(proc.info.Index.KmerSize, proc.info.Index.SketchSize, proc.info.Index.KMVsketch, bf)
-			misc.ErrorCheck(err)
-			// query the LSH forest
-			for _, result := range proc.info.Db.Query(readSketch) {
-				mapped = true
+	} // all reads have been sent for mapping
 
-				// convert the stringified db match for this mapping to the constituent parts (graph, node, offset)
-				alignment, err := proc.info.Db.GetKey(result)
-				misc.ErrorCheck(err)
+	// signal the end of the reads and close the channels
+	theBoss.stopWork()
 
-				// attach the mapping info to the read
-				r.Alignments = append(r.Alignments, alignment)
-
-				// project the sketch of this read onto the graph and increment the k-mer count for each segment in the projection's subpaths
-				// this also updates the segment coverage information, using a bit vector to indicate when a base is covered
-				misc.ErrorCheck(proc.info.Store[alignment.GraphID].IncrementSubPath(alignment.SubPath, alignment.OffSet, len(r.Seq), proc.info.Index.KmerSize))
-
-			}
-			if mapped == true {
-				collectionChan <- r
-			}
-			wg.Done()
-		}(read)
+	// check all the reads were sent for mapping
+	if theBoss.readCount != readCount {
+		misc.ErrorCheck(fmt.Errorf("read leak --> %d reads were accidentally dropped from the sketching pipeline", readCount-theBoss.readCount))
 	}
 
-	// close the channel once all the queries are done
-	go func() {
-		wg.Wait()
-		close(collectionChan)
-	}()
-
-	// collect the mapped reads
-	for mappedRead := range collectionChan {
-
-		// increment the mapped read counter
-		proc.readStats[1]++
-
-		// check for multimaps and increment the counter
-		if len(mappedRead.Alignments) > 1 {
-			proc.readStats[2]++
-		}
-	}
+	// log some stuff
+	proc.readStats[0] = readCount
+	proc.readStats[1] = theBoss.mappedCount
+	proc.readStats[2] = theBoss.multimappedCount
 
 	// log some stuff
 	if proc.readStats[0] == 0 {

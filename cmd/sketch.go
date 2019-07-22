@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/will-rowe/baby-groot/src/lshforest"
+
 	"github.com/pkg/profile"
 	"github.com/spf13/cobra"
 	"github.com/will-rowe/baby-groot/src/misc"
@@ -16,14 +18,14 @@ import (
 
 // the command line arguments
 var (
-	indexDir        *string                                                           // directory containing the index files
-	fastq           *[]string                                                         // list of FASTQ files to align
-	fasta           *bool                                                             // flag to treat input as fasta sequences
-	bloomFilter     *bool                                                             // flag to use a bloom filter in order to prevent unique k-mers being used during sketching
-	minKmerCoverage *int                                                              // the minimum k-mer coverage per base of a segment
-	minBaseCoverage *float64                                                          // percentage of the segment bases that had reads align
-	graphDir        *string                                                           // directory to save gfa graphs to
-	defaultGraphDir = "./groot-graphs-" + string(time.Now().Format("20060102150405")) // a default graphDir
+	indexDir           *string                                                           // directory containing the index files
+	fastq              *[]string                                                         // list of FASTQ files to align
+	fasta              *bool                                                             // flag to treat input as fasta sequences
+	bloomFilter        *bool                                                             // flag to use a bloom filter in order to prevent unique k-mers being used during sketching
+	minKmerCoverage    *int                                                              // the minimum k-mer coverage per base of a segment
+	minSegmentCoverage *float64                                                          // percentage of the segment bases that had reads align
+	graphDir           *string                                                           // directory to save gfa graphs to
+	defaultGraphDir    = "./groot-graphs-" + string(time.Now().Format("20060102150405")) // a default graphDir
 )
 
 // sketchCmd is used by cobra
@@ -46,7 +48,7 @@ func init() {
 	fasta = sketchCmd.Flags().Bool("fasta", false, "if set, the input will be treated as fasta sequence(s) (experimental feature)")
 	bloomFilter = sketchCmd.Flags().Bool("bloomFilter", false, "if set, a bloom filter will be used to stop unique k-mers being added to sketches")
 	minKmerCoverage = sketchCmd.Flags().IntP("minKmerCov", "k", 1, "minimum k-mer coverage per base of a segment")
-	minBaseCoverage = sketchCmd.Flags().Float64P("minBaseCov", "c", 0.1, "minimum proportion of graph segment bases that must be covered by reads")
+	minSegmentCoverage = sketchCmd.Flags().Float64P("minSegCov", "c", 0.9, "minimum proportion of graph segment bases that must be covered by reads")
 	graphDir = sketchCmd.PersistentFlags().StringP("graphDir", "o", defaultGraphDir, "directory to save variation graphs to")
 	sketchCmd.MarkFlagRequired("indexDir")
 	RootCmd.AddCommand(sketchCmd)
@@ -85,7 +87,7 @@ func runSketch() {
 		log.Printf("\tignoring unique k-mers: false")
 	}
 	log.Printf("\tminimum k-mer coverage per graph base: %d", *minKmerCoverage)
-	log.Printf("\tminimum graph segment coverage: %0.0f%%", *minBaseCoverage*100)
+	log.Printf("\tminimum graph segment coverage: %0.0f%%", *minSegmentCoverage*100)
 	log.Printf("\tprocessors: %d", *proc)
 	for _, file := range *fastq {
 		log.Printf("\tinput file: %v", file)
@@ -93,9 +95,9 @@ func runSketch() {
 	if *fasta {
 		log.Print("\tinput file format: fasta")
 	}
-	log.Print("loading the index...")
+	log.Print("loading the index information...")
 	info := new(pipeline.Info)
-	misc.ErrorCheck(info.Load(*indexDir + "/groot.index"))
+	misc.ErrorCheck(info.Load(*indexDir + "/groot.gg"))
 	if info.Version != version.VERSION {
 		misc.ErrorCheck(fmt.Errorf("the groot index was created with a different version of groot (you are currently using version %v)", version.VERSION))
 	}
@@ -103,17 +105,23 @@ func runSketch() {
 	log.Printf("\tsketch size: %d\n", info.Index.SketchSize)
 	log.Printf("\tJaccard similarity theshold: %0.2f\n", info.Index.JSthresh)
 	log.Printf("\twindow size used in indexing: %d\n", info.Index.WindowSize)
+	log.Print("loading the graphs...")
 	log.Printf("\tnumber of variation graphs: %d\n", len(info.Store))
-	numHF, numBucks := info.Db.Settings()
-	log.Printf("\tnumber of hash functions per index bucket: %d\n", numHF)
-	log.Printf("\tnumber of buckets: %d\n", numBucks)
+	log.Print("loading the LSH Forest...")
+	lshf := lshforest.NewLSHforest(info.Index.SketchSize, info.Index.JSthresh)
+	misc.ErrorCheck(lshf.Load(*indexDir + "/groot.lshf"))
+	info.AttachDB(lshf)
+	numHF, numBucks := info.GetDBinfo()
+	log.Printf("\tnumber of LSH Forest buckets: %d\n", numBucks)
+	log.Printf("\tnumber of hash functions per bucket: %d\n", numHF)
 
 	// add the sketch information to the existing groot runtime information
-	info.Sketch = &pipeline.SketchCmd{
+	info.NumProc = *proc
+	info.Sketch = pipeline.SketchCmd{
 		Fasta:           *fasta,
 		BloomFilter:     *bloomFilter,
 		MinKmerCoverage: *minKmerCoverage,
-		MinBaseCoverage: *minBaseCoverage,
+		MinBaseCoverage: *minSegmentCoverage,
 	}
 
 	// create the pipeline
@@ -155,6 +163,7 @@ func runSketch() {
 
 // alignParamCheck is a function to check user supplied parameters
 func alignParamCheck() error {
+
 	// check the supplied FASTQ file(s)
 	if len(*fastq) == 0 {
 		misc.ErrorCheck(misc.CheckSTDIN())
@@ -165,19 +174,24 @@ func alignParamCheck() error {
 			misc.ErrorCheck(misc.CheckExt(fastqFile, []string{"fastq", "fq", "fasta", "fna", "fa"}))
 		}
 	}
+
 	// check the index directory and files
 	misc.ErrorCheck(misc.CheckDir(*indexDir))
-	misc.ErrorCheck(misc.CheckFile(*indexDir + "/groot.index"))
+	misc.ErrorCheck(misc.CheckFile(*indexDir + "/groot.gg"))
+	misc.ErrorCheck(misc.CheckFile(*indexDir + "/groot.lshf"))
+
 	// setup the graphDir
 	if _, err := os.Stat(*graphDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(*graphDir, 0700); err != nil {
 			return fmt.Errorf("can't create specified output directory")
 		}
 	}
+
 	// check the thresholds
-	if *minBaseCoverage < 0.0 || *minBaseCoverage > 1.0 {
+	if *minSegmentCoverage < 0.0 || *minSegmentCoverage > 1.0 {
 		return fmt.Errorf("minimum base coverage must be between 0.0 and 1.0")
 	}
+
 	// set number of processors to use
 	if *proc <= 0 || *proc > runtime.NumCPU() {
 		*proc = runtime.NumCPU()

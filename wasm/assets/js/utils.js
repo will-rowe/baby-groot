@@ -10,7 +10,7 @@ function gotMem(pointer) {
     memoryBytes.set(bytes, pointer);
 }
 
-// prepIndex gets the index ready for loading
+// getIndex gets the index ready for loading
 function getIndex(indexURL) {
     var reader = new FileReader();
     fetch(indexURL).then(function(response) {
