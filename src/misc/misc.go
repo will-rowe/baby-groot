@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -143,4 +144,19 @@ func Uint64SliceEqual(a []uint64, b []uint64) bool {
 		}
 	}
 	return true
+}
+
+// PrintMemUsage outputs the current, total and OS memory being used. As well as the number
+// of garage collection cycles completed.
+// lifted from: https://golangcode.com/print-the-current-memory-usage/
+func PrintMemUsage() string {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
+	return fmt.Sprintf("[ Heap Allocations: %vMb, OS Memory: %vMb, Num. GC cycles: %v ]", bToMb(m.HeapAlloc), bToMb(m.Sys), m.NumGC)
+}
+
+// bToMb converts bytes to megabytes
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
 }

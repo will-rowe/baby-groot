@@ -1,25 +1,17 @@
 package pipeline
 
-import (
-	"sync"
-)
-
 // theBoss is used to orchestrate the minions
 type theBoss struct {
-	wg               sync.WaitGroup // records when a minion is working
-	inputReads       chan []byte    // the boss uses this channel to receive data from the main sketching pipeline
-	finish           chan bool      // the boss uses this channel to stop the minions
-	minionRegister   []*minion      // a slice of all the minions controlled by this boss
-	readCount        int            // the total number of reads the minions received
-	mappedCount      int            // the total number of reads that were successful mapped to at least one graph
-	multimappedCount int            // the total number of reads that had multiple mappings
+	inputReads       chan []byte // the boss uses this channel to receive data from the main sketching pipeline
+	finish           chan bool   // the boss uses this channel to stop the minions
+	minionRegister   []*minion   // a slice of all the minions controlled by this boss
+	readCount        int         // the total number of reads the minions received
+	mappedCount      int         // the total number of reads that were successful mapped to at least one graph
+	multimappedCount int         // the total number of reads that had multiple mappings
 }
 
 // stopWork is a method to initiate a controlled shut down of the boss and minions
 func (theBoss *theBoss) stopWork() {
-
-	// wait for all the work to be done
-	theBoss.wg.Wait()
 
 	// close the channel sending sequences to the minions
 	close(theBoss.inputReads)
@@ -57,7 +49,7 @@ func mapReads(runtimeInfo *Info) (*theBoss, error) {
 	for id := 0; id < runtimeInfo.NumProc; id++ {
 
 		// create a minion
-		minion := newMinion(id, runtimeInfo, uint(runtimeInfo.Index.KmerSize), uint(runtimeInfo.Index.SketchSize), runtimeInfo.Index.KMVsketch, minionQueue, &boss.wg)
+		minion := newMinion(id, runtimeInfo, uint(runtimeInfo.Index.KmerSize), uint(runtimeInfo.Index.SketchSize), runtimeInfo.Index.KMVsketch, minionQueue)
 
 		// start it running
 		minion.start()
@@ -78,7 +70,6 @@ func mapReads(runtimeInfo *Info) (*theBoss, error) {
 				if len(read) == 0 {
 					continue
 				}
-				boss.wg.Add(1)
 
 				// wait for a minion to be available
 				freeMinion := <-minionQueue

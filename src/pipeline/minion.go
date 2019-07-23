@@ -1,8 +1,6 @@
 package pipeline
 
 import (
-	"sync"
-
 	"github.com/will-rowe/baby-groot/src/minhash"
 	"github.com/will-rowe/baby-groot/src/misc"
 )
@@ -15,7 +13,6 @@ type minion struct {
 	sketchSize       uint
 	kmvSketch        bool
 	minionQueue      chan chan []byte
-	wg               *sync.WaitGroup
 	inputChannel     chan []byte
 	stop             chan struct{}
 	readCount        int
@@ -24,7 +21,7 @@ type minion struct {
 }
 
 // newMinion is the constructor function
-func newMinion(id int, runtimeInfo *Info, kmerSize, sketchSize uint, kmvSketch bool, minionQueue chan chan []byte, wg *sync.WaitGroup) *minion {
+func newMinion(id int, runtimeInfo *Info, kmerSize, sketchSize uint, kmvSketch bool, minionQueue chan chan []byte) *minion {
 	return &minion{
 		id:               id,
 		info:             runtimeInfo,
@@ -32,7 +29,6 @@ func newMinion(id int, runtimeInfo *Info, kmerSize, sketchSize uint, kmvSketch b
 		sketchSize:       sketchSize,
 		kmvSketch:        kmvSketch,
 		minionQueue:      minionQueue,
-		wg:               wg,
 		inputChannel:     make(chan []byte),
 		stop:             make(chan struct{}),
 		readCount:        0,
@@ -85,9 +81,6 @@ func (minion *minion) start() {
 				if mapped > 1 {
 					minion.multimappedCount++
 				}
-
-				// this minion is done for now
-				minion.wg.Done()
 
 			// end the minion go function if a stop signal has been sent
 			case <-minion.stop:

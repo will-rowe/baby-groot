@@ -13,6 +13,7 @@ import (
 type Info struct {
 	NumProc   int
 	Version   string
+	Profiling bool
 	Index     IndexCmd
 	Sketch    SketchCmd
 	Haplotype HaploCmd

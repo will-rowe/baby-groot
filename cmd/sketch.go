@@ -117,6 +117,7 @@ func runSketch() {
 
 	// add the sketch information to the existing groot runtime information
 	info.NumProc = *proc
+	info.Profiling = *profiling
 	info.Sketch = pipeline.SketchCmd{
 		Fasta:           *fasta,
 		BloomFilter:     *bloomFilter,

@@ -312,6 +312,13 @@ func (proc *ReadMapper) Run() {
 		readCount++
 		theBoss.inputReads <- read
 
+		// print current memory usage every 100,000 reads
+		if proc.info.Profiling {
+			if (readCount % 100000) == 0 {
+				log.Printf("\tprocessed %d reads -> current memory usage %v", readCount, misc.PrintMemUsage())
+			}
+		}
+
 	} // all reads have been sent for mapping
 
 	// signal the end of the reads and close the channels
