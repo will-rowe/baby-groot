@@ -1,6 +1,8 @@
 package pipeline
 
 import (
+	"sync"
+
 	"github.com/will-rowe/baby-groot/src/minhash"
 	"github.com/will-rowe/baby-groot/src/misc"
 )
@@ -18,10 +20,11 @@ type minion struct {
 	readCount        int
 	mappedCount      int
 	multimappedCount int
+	wg               *sync.WaitGroup
 }
 
 // newMinion is the constructor function
-func newMinion(id int, runtimeInfo *Info, kmerSize, sketchSize uint, kmvSketch bool, minionQueue chan chan []byte) *minion {
+func newMinion(id int, runtimeInfo *Info, kmerSize, sketchSize uint, kmvSketch bool, minionQueue chan chan []byte, wg *sync.WaitGroup) *minion {
 	return &minion{
 		id:               id,
 		info:             runtimeInfo,
@@ -29,11 +32,12 @@ func newMinion(id int, runtimeInfo *Info, kmerSize, sketchSize uint, kmvSketch b
 		sketchSize:       sketchSize,
 		kmvSketch:        kmvSketch,
 		minionQueue:      minionQueue,
-		inputChannel:     make(chan []byte),
+		inputChannel:     make(chan []byte, BUFFERSIZE),
 		stop:             make(chan struct{}),
 		readCount:        0,
 		mappedCount:      0,
 		multimappedCount: 0,
+		wg:               wg,
 	}
 }
 
@@ -81,6 +85,7 @@ func (minion *minion) start() {
 				if mapped > 1 {
 					minion.multimappedCount++
 				}
+				minion.wg.Done()
 
 			// end the minion go function if a stop signal has been sent
 			case <-minion.stop:
@@ -92,6 +97,8 @@ func (minion *minion) start() {
 
 // finish is a method to close down a minion, after checking it isn't currently working on something. It returns the number of reads it has processed, how many mapped and how many had multiple mappings
 func (minion *minion) finish() (int, int, int) {
+	minion.wg.Wait()
 	close(minion.stop)
+	close(minion.inputChannel)
 	return minion.readCount, minion.mappedCount, minion.multimappedCount
 }

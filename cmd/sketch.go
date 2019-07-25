@@ -60,8 +60,8 @@ func runSketch() {
 
 	// set up profiling
 	if *profiling {
-		//defer profile.Start(profile.MemProfile, profile.ProfilePath("./")).Stop()
-		defer profile.Start(profile.ProfilePath("./")).Stop()
+		defer profile.Start(profile.MemProfile, profile.ProfilePath("./")).Stop()
+		//defer profile.Start(profile.ProfilePath("./")).Stop()
 	}
 
 	// start logging

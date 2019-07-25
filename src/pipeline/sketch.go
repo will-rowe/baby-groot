@@ -233,7 +233,7 @@ type FastqChecker struct {
 
 // NewFastqChecker is the constructor
 func NewFastqChecker(info *Info) *FastqChecker {
-	return &FastqChecker{info: info, output: make(chan []byte)}
+	return &FastqChecker{info: info, output: make(chan []byte, BUFFERSIZE)}
 }
 
 // Connect is the method to join the input of this process with the output of FastqHandler
@@ -373,7 +373,7 @@ type GraphPruner struct {
 
 // NewGraphPruner is the constructor
 func NewGraphPruner(info *Info, conH bool) *GraphPruner {
-	return &GraphPruner{info: info, output: make(chan *graph.GrootGraph), connectHaplotype: conH}
+	return &GraphPruner{info: info, output: make(chan *graph.GrootGraph, BUFFERSIZE), connectHaplotype: conH}
 }
 
 // Connect is the method to join the input of this process with the output of ReadMapper

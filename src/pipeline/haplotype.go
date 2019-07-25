@@ -210,7 +210,6 @@ func (proc *HaplotypeParser) Run() {
 	meanEMiterations := 0
 	keptGraphs := make(graph.Store)
 	keptPaths := []string{}
-	log.Println("processing haplotypes...")
 	for g := range proc.input {
 		meanEMiterations += g.EMiterations
 

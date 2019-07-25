@@ -1,5 +1,7 @@
 package pipeline
 
+import "sync"
+
 // theBoss is used to orchestrate the minions
 type theBoss struct {
 	inputReads       chan []byte // the boss uses this channel to receive data from the main sketching pipeline
@@ -8,6 +10,7 @@ type theBoss struct {
 	readCount        int         // the total number of reads the minions received
 	mappedCount      int         // the total number of reads that were successful mapped to at least one graph
 	multimappedCount int         // the total number of reads that had multiple mappings
+	wg               sync.WaitGroup
 }
 
 // stopWork is a method to initiate a controlled shut down of the boss and minions
@@ -16,18 +19,18 @@ func (theBoss *theBoss) stopWork() {
 	// close the channel sending sequences to the minions
 	close(theBoss.inputReads)
 
-	// stop the Boss's go routine and close channels
+	// wait for work to finish and stop the Boss's go routine
 	theBoss.finish <- true
 
-	// send the finish signal to the minions and collect the number of reads they mapped
+	// send the finish signal to the minions
 	for _, minion := range theBoss.minionRegister {
 		receivedReads, mappedReads, multimappedReads := minion.finish()
 
+		// record the number of reads the minion processed
 		theBoss.readCount += receivedReads
 		theBoss.mappedCount += mappedReads
 		theBoss.multimappedCount += multimappedReads
 	}
-
 }
 
 // mapReads is a function to start off the minions to map reads, the function returns their boss
@@ -35,7 +38,7 @@ func mapReads(runtimeInfo *Info) (*theBoss, error) {
 
 	// create a boss to orchestrate the minions
 	boss := &theBoss{
-		inputReads:  make(chan []byte),
+		inputReads:  make(chan []byte, BUFFERSIZE),
 		finish:      make(chan bool),
 		readCount:   0,
 		mappedCount: 0,
@@ -49,7 +52,7 @@ func mapReads(runtimeInfo *Info) (*theBoss, error) {
 	for id := 0; id < runtimeInfo.NumProc; id++ {
 
 		// create a minion
-		minion := newMinion(id, runtimeInfo, uint(runtimeInfo.Index.KmerSize), uint(runtimeInfo.Index.SketchSize), runtimeInfo.Index.KMVsketch, minionQueue)
+		minion := newMinion(id, runtimeInfo, uint(runtimeInfo.Index.KmerSize), uint(runtimeInfo.Index.SketchSize), runtimeInfo.Index.KMVsketch, minionQueue, &boss.wg)
 
 		// start it running
 		minion.start()
@@ -74,7 +77,8 @@ func mapReads(runtimeInfo *Info) (*theBoss, error) {
 				// wait for a minion to be available
 				freeMinion := <-minionQueue
 
-				// put the read in the minion's input channel
+				// put the read in the minion's input channel and record that a read is being processed by a minion
+				boss.wg.Add(1)
 				freeMinion <- read
 
 			// stop the minions working when the boss receives word
