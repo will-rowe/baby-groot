@@ -2,7 +2,6 @@
 package misc
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"log"
@@ -13,9 +12,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
-
-// HASH_SIZE is set to 2/4/8 for 16bit/32bit/64bit hash values
-const HASH_SIZE = 8
 
 // ErrorCheck is a function to throw error to the log and exit the program
 func ErrorCheck(msg error) {
@@ -120,17 +116,6 @@ func CheckExt(file string, exts []string) error {
 		}
 	}
 	return err
-}
-
-// Stringify is a function to print an array of unsigned integers as a string - taken from https://github.com/ekzhu/minhash-lsh TODO: benchmark with other stringify options
-func Stringify(sig []uint64) string {
-	s := make([]byte, HASH_SIZE*len(sig))
-	buf := make([]byte, 8)
-	for i, v := range sig {
-		binary.LittleEndian.PutUint64(buf, v)
-		copy(s[i*HASH_SIZE:(i+1)*HASH_SIZE], buf[:HASH_SIZE])
-	}
-	return string(s)
 }
 
 // Uint64SliceEqual returns true if two uint64[] are identical

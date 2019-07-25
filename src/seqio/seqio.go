@@ -31,22 +31,9 @@ type Sequence struct {
 // FASTQread is a type that holds a single FASTQ read, along with the locations it mapped to
 type FASTQread struct {
 	Sequence
-	Misc       []byte
-	Qual       []byte
-	RC         bool
-	Alignments []*Key
-}
-
-// Key is a type to record read mappings (i.e. the locations where sketches projected onto graphs)
-type Key struct {
-	GraphID        int
-	Node           uint64
-	OffSet         int
-	SubPath        []uint64 // GFA subpath in which this window is contained (assumes all paths are in the same orientation)
-	Ref            int      // the first reference sequence this subpath was derived from (only used to differentiate duplicate sketches)
-	Sketch         []uint64
-	StringifiedKey string
-	RC             bool
+	Misc []byte
+	Qual []byte
+	RC   bool
 }
 
 // RunMinHash is a method to create a minhash sketch for the sequence

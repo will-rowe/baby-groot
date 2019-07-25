@@ -20,7 +20,7 @@ type GrootGraphNode struct {
 	SegmentID    uint64
 	Sequence     []byte
 	OutEdges     Nodes
-	PathIDs      []int               // PathIDs are the lookup IDs to the linear reference sequences that use this segment (value corresponds to key in GrootGraph.Paths)
+	PathIDs      []uint32            // PathIDs are the lookup IDs to the linear reference sequences that use this segment (value corresponds to key in GrootGraph.Paths)
 	KmerFreq     float64             // KmerFreq is the number of k-mers belonging to this node
 	Coverage     bitvector.BitVector // Coverage is a bit vector that tracks which bases in this GFA segment are covered by mapped reads
 }
@@ -51,13 +51,13 @@ func (GrootGraphNode *GrootGraphNode) DecrementKmerFreq(decrement float64) error
 }
 
 // AddCoverage is a method to mark a region within a node as covered, given the start position and the number of bases to cover
-func (GrootGraphNode *GrootGraphNode) AddCoverage(start, numberOfBases int) {
+func (GrootGraphNode *GrootGraphNode) AddCoverage(start uint32, numberOfBases int) {
 	// if numberOfBases is greater than the sequence length, just mark to the end of the node sequence
 	if numberOfBases >= len(GrootGraphNode.Sequence) {
 		numberOfBases = len(GrootGraphNode.Sequence)
 	}
 	GrootGraphNode.Lock()
-	for i := start; i < numberOfBases; i++ {
+	for i := int(start); i < numberOfBases; i++ {
 		GrootGraphNode.Coverage.Add(i)
 	}
 	GrootGraphNode.Unlock()

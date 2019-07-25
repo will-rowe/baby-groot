@@ -12,10 +12,10 @@ var tolerance = math.Nextafter(1, 2) - 1
 
 // EMrunner is the type to run the EM algorithm
 type EMrunner struct {
-	paths   map[int][]byte     // the paths in the graph (i.e. the possible reference genes)
-	lengths map[int]int        // the length of each path
-	ecMap   map[uint64][]int   // equivalence class (ec) map -> key=ecID, values=nodeIDs
-	counts  map[uint64]float64 // the count for each ec, where index == ec ID
+	paths   map[uint32][]byte   // the paths in the graph (i.e. the possible reference genes)
+	lengths map[uint32]int      // the length of each path
+	ecMap   map[uint64][]uint32 // equivalence class (ec) map -> key=ecID, values=nodeIDs
+	counts  map[uint64]float64  // the count for each ec, where index == ec ID
 	//weights []float64 // the weight for each ec
 	numIterations int // the max number of iterations for the EM
 	minIterations int // the minimum number of iterations for the EM
@@ -26,7 +26,7 @@ type EMrunner struct {
 }
 
 // NewEM is the constructor
-func NewEM(nIterations int, mIterations int, paths map[int][]byte, lengths map[int]int, ecMap map[uint64][]int, counts map[uint64]float64) (*EMrunner, error) {
+func NewEM(nIterations int, mIterations int, paths map[uint32][]byte, lengths map[uint32]int, ecMap map[uint64][]uint32, counts map[uint64]float64) (*EMrunner, error) {
 	if nIterations < mIterations {
 		return nil, fmt.Errorf("number of EM iterations (%d) must be greater than minimum iterations (%d)", nIterations, mIterations)
 	}

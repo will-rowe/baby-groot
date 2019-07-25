@@ -8,7 +8,7 @@ import (
 
 // grootGraphPath
 type grootGraphPath struct {
-	pathID    int
+	pathID    uint32
 	name      []byte
 	nodes     []uint64
 	sequences [][]byte
@@ -34,7 +34,7 @@ func (GrootGraph *GrootGraph) RunEM() error {
 	minIterations := 50
 
 	// make the map of equivalence classes
-	ecMap := make(map[uint64][]int)
+	ecMap := make(map[uint64][]uint32)
 	counts := make(map[uint64]float64)
 	for _, node := range GrootGraph.SortedNodes {
 		if node == nil {
@@ -82,14 +82,14 @@ func (GrootGraph *GrootGraph) ProcessEMpaths(cutoff, totalKmers float64) error {
 		rho[i] = GrootGraph.alpha[i] / pathsTotal
 	}
 	// rank EM paths, apply cutoff and store
-	GrootGraph.abundances = make(map[int]float64)
+	GrootGraph.abundances = make(map[uint32]float64)
 	for i, val := range rho {
 		kmerShare := (val * GrootGraph.KmerTotal) / totalKmers
 		// delete any path not meeting the supplied cutoff
 		if kmerShare <= cutoff {
-			delete(GrootGraph.Paths, i)
+			delete(GrootGraph.Paths, uint32(i))
 		} else {
-			GrootGraph.abundances[i] = kmerShare
+			GrootGraph.abundances[uint32(i)] = kmerShare
 		}
 	}
 	return nil

@@ -18,7 +18,7 @@ type Info struct {
 	Sketch    SketchCmd
 	Haplotype HaploCmd
 	Store     graph.Store
-	db        lshforest.LSHforest
+	db        lshforest.IndexWrapper
 }
 
 // IndexCmd stores the runtime info for the index command
@@ -50,12 +50,12 @@ type HaploCmd struct {
 }
 
 // AttachDB is a method to attach a LSH Forest index to the runtime
-func (Info *Info) AttachDB(db *lshforest.LSHforest) {
+func (Info *Info) AttachDB(db *lshforest.IndexWrapper) {
 	Info.db = *db
 }
 
 // GetDBinfo is a method to return the number of hash functions and buckets used by the current index
-func (Info *Info) GetDBinfo() (int, int) {
+func (Info *Info) GetDBinfo() (int32, int32) {
 	return Info.db.Settings()
 }
 

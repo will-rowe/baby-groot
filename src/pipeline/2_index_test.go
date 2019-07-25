@@ -8,12 +8,6 @@ func TestIndexBuild(t *testing.T) {
 	if err := setupTmpDir(); err != nil {
 		t.Fatal(err)
 	}
-	if err := testParameters.SaveDB("test-data/tmp/groot.lshf"); err != nil {
-		t.Fatal(err)
-	}
-	if err := testParameters.Dump("test-data/tmp/groot.gg"); err != nil {
-		t.Fatal(err)
-	}
 	indexingPipeline := NewPipeline()
 
 	// initialise processes

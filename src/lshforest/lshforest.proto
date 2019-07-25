@@ -1,0 +1,33 @@
+/*
+compile with `protoc --go_out=. *.proto`
+*/
+syntax = "proto3";
+
+package lshforest;
+
+message LSHforest {
+    int32 K = 1; // the size of a subsequence in a bucket
+    int32 L = 2; // the number of buckets
+    map<string, Key> KeyLookup = 3; // used to relate the stringified versions of a key to the original struct
+    repeated Bucket Buckets = 4; // these sorted slices are equivalent to the prefix trees used in the LSH Forest paper
+}
+
+message Bucket {
+    repeated Pair Pairs = 1;
+}
+
+message Pair {
+    string SubSequence = 1;
+    repeated string Keys = 2;    
+    repeated uint64 SketchPartition = 3;
+}
+
+message Key {
+	uint32 GraphID = 1;
+	uint64 Node = 2;
+	uint32 OffSet = 3;
+	repeated uint64 SubPath = 4;
+	uint32 Ref = 5;
+	bool RC = 6;
+    repeated uint64 Sketch = 7;
+}

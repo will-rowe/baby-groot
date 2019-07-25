@@ -13,7 +13,6 @@ import (
 	"github.com/will-rowe/baby-groot/src/graph"
 	"github.com/will-rowe/baby-groot/src/lshforest"
 	"github.com/will-rowe/baby-groot/src/misc"
-	"github.com/will-rowe/baby-groot/src/seqio"
 	"github.com/will-rowe/gfa"
 )
 
@@ -64,12 +63,12 @@ func (proc *MSAconverter) Run() {
 type GraphSketcher struct {
 	info   *Info
 	input  chan *graph.GrootGraph
-	output chan *seqio.Key
+	output chan *lshforest.Key
 }
 
 // NewGraphSketcher is the constructor
 func NewGraphSketcher(info *Info) *GraphSketcher {
-	return &GraphSketcher{info: info, output: make(chan *seqio.Key, BUFFERSIZE)}
+	return &GraphSketcher{info: info, output: make(chan *lshforest.Key, BUFFERSIZE)}
 }
 
 // Connect is the method to connect the MSAconverter to some data source
@@ -93,11 +92,6 @@ func (proc *GraphSketcher) Run() {
 
 			// create sketch for each window in the graph
 			for window := range grootGraph.WindowGraph(proc.info.Index.WindowSize, proc.info.Index.KmerSize, proc.info.Index.SketchSize, proc.info.Index.KMVsketch) {
-
-				// there may be multiple copies of the same window
-				// - one graph+node+offset can have several subpaths to window
-				// - or windows can be derived from identical regions of the graph that multiple sequences share
-				window.StringifiedKey = fmt.Sprintf("g%dn%do%dp%d", window.GraphID, window.Node, window.OffSet, window.Ref)
 
 				// send the windows for this graph onto the next process
 				proc.output <- window
@@ -130,7 +124,7 @@ func (proc *GraphSketcher) Run() {
 // SketchIndexer is a pipeline process that adds sketches to the LSH Forest
 type SketchIndexer struct {
 	info  *Info
-	input chan *seqio.Key
+	input chan *lshforest.Key
 }
 
 // NewSketchIndexer is the constructor

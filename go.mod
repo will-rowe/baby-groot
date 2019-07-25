@@ -7,6 +7,7 @@ require (
 	github.com/biogo/biogo v1.0.1
 	github.com/disintegration/imaging v1.6.0 // indirect
 	github.com/dsnet/compress v0.0.1 // indirect
+	github.com/golang/protobuf v1.3.2
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/uuid v1.1.1 // indirect
 	github.com/leesper/go_rng v0.0.0-20190531154944-a612b043e353
@@ -25,6 +26,7 @@ require (
 	github.com/will-rowe/hulk v0.0.0-20190722063731-4a6ce1a8d701
 	github.com/will-rowe/ntHash v0.0.0-20190624153018-541592fc7931
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
+	golang.org/dl v0.0.0-20190708215927-a23d87f20b66 // indirect
 	golang.org/x/net v0.0.0-20190501004415-9ce7a6920f09 // indirect
 	gopkg.in/vmihailenco/msgpack.v2 v2.9.1
 )

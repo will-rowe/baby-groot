@@ -12,7 +12,7 @@ import (
 )
 
 // Store stores the GROOT graphs...
-type Store map[int]*GrootGraph
+type Store map[uint32]*GrootGraph
 
 // SaveGraphAsGFA is a method to convert and save a GrootGraph in GFA format
 func (GrootGraph *GrootGraph) SaveGraphAsGFA(fileName string, totalKmers int) (int, error) {

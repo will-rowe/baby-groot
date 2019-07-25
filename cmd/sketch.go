@@ -60,8 +60,8 @@ func runSketch() {
 
 	// set up profiling
 	if *profiling {
-		defer profile.Start(profile.MemProfile, profile.ProfilePath("./")).Stop()
-		//defer profile.Start(profile.ProfilePath("./")).Stop()
+		//defer profile.Start(profile.MemProfile, profile.ProfilePath("./")).Stop()
+		defer profile.Start(profile.ProfilePath("./")).Stop()
 	}
 
 	// start logging
@@ -115,8 +115,13 @@ func runSketch() {
 	log.Printf("\tnumber of LSH Forest buckets: %d\n", numBucks)
 	log.Printf("\tnumber of hash functions per bucket: %d\n", numHF)
 
+	if *profiling {
+		log.Printf("\tloaded lshf file -> current memory usage %v", misc.PrintMemUsage())
+		runtime.GC()
+	}
+
 	// add the sketch information to the existing groot runtime information
-	info.NumProc = *proc
+	info.NumProc = *proc * 1
 	info.Profiling = *profiling
 	info.Sketch = pipeline.SketchCmd{
 		Fasta:           *fasta,
