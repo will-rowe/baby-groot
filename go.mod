@@ -22,6 +22,7 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.3
 	github.com/stretchr/testify v1.3.0 // indirect
+	github.com/will-rowe/baby-groot/wasm v0.0.0-20190725110810-6dcc555c7c76 // indirect
 	github.com/will-rowe/gfa v0.0.0-20190502084819-05c93955478b
 	github.com/will-rowe/hulk v0.0.0-20190722063731-4a6ce1a8d701
 	github.com/will-rowe/ntHash v0.0.0-20190624153018-541592fc7931

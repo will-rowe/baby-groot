@@ -79,6 +79,11 @@ func (Info *Info) Load(path string) error {
 	if err != nil {
 		return err
 	}
+	return Info.LoadFromBytes(data)
+}
+
+// LoadFromBytes is a method to load Info from bytes
+func (Info *Info) LoadFromBytes(data []byte) error {
 	if len(data) == 0 {
 		return fmt.Errorf("groot graph store appears empty")
 	}
