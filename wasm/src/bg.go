@@ -16,8 +16,10 @@ type GrootWASM struct {
 
 	inBuf1     []uint8
 	inBuf2     []uint8
+	inBuf3     []uint8
 	initMemCb  js.Func
 	initMem2Cb js.Func
+	initMem3Cb js.Func
 
 	inputCheckerCb   js.Func
 	fastqFilesCb     js.Func
@@ -35,6 +37,7 @@ type GrootWASM struct {
 // New returns a new instance of GrootWASM
 func New() *GrootWASM {
 	return &GrootWASM{
+		info: new(pipeline.Info),
 		console: js.Global().Get("console"),
 		fastq:   make(chan []byte, pipeline.BUFFERSIZE),
 		done:    make(chan struct{}),
@@ -43,12 +46,17 @@ func New() *GrootWASM {
 
 // Start sets up all the callbacks and waits for the close signal to be sent from the browser.
 func (s *GrootWASM) Start() {
+	defer s.releaseCallbacks()
 
 	// the call back for the mem pointers
 	s.setupInitMem1Cb()
 	js.Global().Set("initFASTQmem", s.initMemCb)
+
 	s.setupInitMem2Cb()
-	js.Global().Set("initIndexMem", s.initMem2Cb)
+	js.Global().Set("initGraphMem", s.initMem2Cb)
+
+	s.setupInitMem3Cb()
+	js.Global().Set("initIndexMem", s.initMem3Cb)
 
 	// the call back for getting the FASTQ file list
 	s.setupFastqFiles()
@@ -73,18 +81,8 @@ func (s *GrootWASM) Start() {
 	js.Global().Get("document").
 		Call("getElementById", "close").
 		Call("addEventListener", "click", s.shutdownCb)
-
 	<-s.done
-	s.statusUpdate("Shutting down GROOT app...")
-	s.initMemCb.Release()
-	s.initMem2Cb.Release()
-	s.fastqFilesCb.Release()
-	s.closeFASTQchanCb.Release()
-	s.inputCheckerCb.Release()
-	s.grootCb.Release()
-	s.shutdownCb.Release()
-	s.statusUpdate("GROOT has shut the app down!")
-	s.iconUpdate("close")
+
 }
 
 // setupShutdownCb
@@ -103,4 +101,19 @@ func (s *GrootWASM) statusUpdate(msg string) {
 // iconUpdate calls the iconUpdate javascript function, which changes an icon to a tick
 func (s *GrootWASM) iconUpdate(icon string) {
 	js.Global().Call("iconUpdate", icon)
+}
+
+// releaseCallbacks
+func (s *GrootWASM) releaseCallbacks() {
+	//s.statusUpdate("Shutting down GROOT app...")
+	s.initMemCb.Release()
+	s.initMem2Cb.Release()
+	s.initMem3Cb.Release()
+	s.fastqFilesCb.Release()
+	s.closeFASTQchanCb.Release()
+	s.inputCheckerCb.Release()
+	s.grootCb.Release()
+	s.shutdownCb.Release()
+	s.statusUpdate("GROOT has shut the app down!")
+	s.iconUpdate("close")
 }

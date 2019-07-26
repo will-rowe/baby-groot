@@ -1,20 +1,26 @@
 package pipeline
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 // theBoss is used to orchestrate the minions
 type theBoss struct {
-	inputReads       chan []byte // the boss uses this channel to receive data from the main sketching pipeline
-	finish           chan bool   // the boss uses this channel to stop the minions
-	minionRegister   []*minion   // a slice of all the minions controlled by this boss
-	readCount        int         // the total number of reads the minions received
-	mappedCount      int         // the total number of reads that were successful mapped to at least one graph
-	multimappedCount int         // the total number of reads that had multiple mappings
-	wg               sync.WaitGroup
+	inputReads       chan []byte    // the boss uses this channel to receive data from the main sketching pipeline
+	finish           chan bool      // the boss uses this channel to stop the minions
+	minionRegister   []*minion      // a slice of all the minions controlled by this boss
+	readCount        int            // the total number of reads the minions received
+	mappedCount      int            // the total number of reads that were successful mapped to at least one graph
+	multimappedCount int            // the total number of reads that had multiple mappings
+	wg               sync.WaitGroup // records the number of reads currently being mapped
 }
 
 // stopWork is a method to initiate a controlled shut down of the boss and minions
 func (theBoss *theBoss) stopWork() {
+
+	// wait until all the reads have been processed
+	theBoss.wg.Wait()
 
 	// close the channel sending sequences to the minions
 	close(theBoss.inputReads)
@@ -60,6 +66,9 @@ func mapReads(runtimeInfo *Info) (*theBoss, error) {
 		// add it to the boss's register of running minions
 		boss.minionRegister[id] = minion
 	}
+	if len(boss.minionRegister) == 0 {
+		return nil, fmt.Errorf("the boss didn't make any minions - check number of processors available")
+	}
 
 	// start processing the sequences
 	go func() {
@@ -73,16 +82,17 @@ func mapReads(runtimeInfo *Info) (*theBoss, error) {
 				if len(read) == 0 {
 					continue
 				}
+				boss.wg.Add(1)
 
 				// wait for a minion to be available
 				freeMinion := <-minionQueue
 
-				// put the read in the minion's input channel and record that a read is being processed by a minion
-				boss.wg.Add(1)
+				// put the read in the minion's input channel
 				freeMinion <- read
 
 			// stop the minions working when the boss receives word
 			case <-boss.finish:
+
 				break
 			}
 		}

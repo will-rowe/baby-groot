@@ -149,7 +149,11 @@
       }
 
       // load the default index
-      getIndex("groot-files/groot.index");
+      //getGraphs("groot-files/argannot-k31-s42-w300/groot.gg");
+      //getLSHforest("groot-files/argannot-k31-s42-w300/groot.lshf");
+
+      getGraphs("assets/groot-files/dummy-index/groot.gg");
+      getLSHforest("assets/groot-files/dummy-index/groot.lshf");
 
       // turn the spinner off
       document.getElementById("spinner").setAttribute('hidden', '');
@@ -204,11 +208,13 @@
   <!--- JS for FASTQ files --->
   <script>
     function initInputFiles() {
+
       // set up the FASTQ input
       var uploader1 = $id("uploader1"), filedrag = $id("filedrag");
       uploader1.addEventListener("change", FileSelectHandler, false);
       var xhr = new XMLHttpRequest();
       if (xhr.upload) {
+
         // file drop
         filedrag.addEventListener("dragover", FileDragHover, false);
         filedrag.addEventListener("dragleave", FileDragHover, false);
@@ -223,8 +229,10 @@
     }
     var fastqStreamer;
     function FileSelectHandler(e) {
+
           // cancel event and hover styling
           FileDragHover(e);
+
           // fetch FileList object
           var files = e.target.files || e.dataTransfer.files;
           if (files.length != 0) {
@@ -234,15 +242,19 @@
             $("#fastqSelecter").removeClass('active');
             document.getElementById("noFile").innerHTML = "no files :(";
           }
+
           // process all FASTQ files
           var fastqList = [];
           for (var i = 0, f; f = files[i]; i++) {
+
             // add filename to the selector bar
             var fileName = f.name.replace("C:\\fakepath\\", "");
             document.getElementById("noFile").innerHTML += fileName + ",";
+
             // add the file for GROOT
             fastqList.push(URL.createObjectURL(f));
           }
+
           // get the FASTQ streamer ready
           loadFileList(fastqList);
     }
@@ -251,13 +263,14 @@
   <!--- JS for WASM --->
   <script type="text/javascript">
 
-    let memoryBytes = new WebAssembly.Memory({initial:32767, maximum:65536});
+    // memoryBytes is an Uint8Array pointing to the webassembly linear memory
+    //let memoryBytes = new WebAssembly.Memory({initial:32767, maximum:65536});
 
-    // memoryBytes is an Uint8Array pointing to the webassembly linear memory.
-    let mod, inst, bytes;
+    
+    let mod, inst, bytes, memoryBytes;
     const go = new Go();
 
-    WebAssembly.instantiateStreaming(fetch("bg.wasm"), go.importObject).then((result) => {
+    WebAssembly.instantiateStreaming(fetch("baby-groot.wasm"), go.importObject).then((result) => {
       mod = result.module;
       inst = result.instance;
       memoryBytes = new Uint8Array(inst.exports.mem.buffer);

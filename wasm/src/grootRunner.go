@@ -59,12 +59,15 @@ func (s *GrootWASM) setupGrootCb() {
 			go js.Global().Call("fastqStreamer", s.fastqFiles)
 
 			// run the pipeline
+			fmt.Println("starting the pipeline")
 			sketchingPipeline.Run()
+			fmt.Println("pipeline finished")
 
 			// collect the output
 			readStats := readMapper.CollectReadStats()
 			//foundPaths := graphPruner.CollectOutput()
 			//foundHaplotypes := haploParser.CollectOutput()
+			fmt.Println("readStats: ", readStats)
 
 			// print some updates
 			if readStats[1] == 0 {

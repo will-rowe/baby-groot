@@ -10,8 +10,33 @@ function gotMem(pointer) {
     memoryBytes.set(bytes, pointer);
 }
 
-// getIndex gets the index ready for loading
-function getIndex(indexURL) {
+// getGraphs gets the groot graphs ready for loading
+function getGraphs(indexURL) {
+    var reader = new FileReader();
+    fetch(indexURL).then(function(response) {
+        if (!response.ok) {
+            statusUpdate("status", "could not download groot graphs!")
+        }
+        return response.blob();
+    }).then(data => {
+            reader.readAsArrayBuffer(data);
+    })
+    .catch(function(error) {
+        console.log(error);
+    });
+    
+    reader.onload = (ev) => {
+        bytes = new Uint8Array(ev.target.result);
+        if (bytes === null) {
+            statusUpdate("status", "could not download groot graphs!")
+        } else {
+            initGraphMem(bytes.length);
+        }
+    }
+}
+
+// getLSHforest gets the index ready for loading
+function getLSHforest(indexURL) {
     var reader = new FileReader();
     fetch(indexURL).then(function(response) {
         if (!response.ok) {
@@ -35,7 +60,9 @@ function getIndex(indexURL) {
     }
 }
 
-//
+
+
+// fastqStreamer
 async function fastqStreamer(fileArr) {
     var items = fileArr[0]
     var closeSignal = false;

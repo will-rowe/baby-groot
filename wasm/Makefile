@@ -1,4 +1,4 @@
-BINARY='bg.wasm'
+BINARY='baby-groot.wasm'
 
 all: build
 

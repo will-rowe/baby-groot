@@ -31,7 +31,7 @@ TEST PARAMETERS
 */
 var indexCmd = IndexCmd{
 	KmerSize:   31,
-	SketchSize: 100,
+	SketchSize: 42,
 	KMVsketch:  false,
 	JSthresh:   0.99,
 	WindowSize: 100,

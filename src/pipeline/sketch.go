@@ -124,6 +124,7 @@ func (proc *WASMstreamer) Run() {
 		// read the chunk line by line
 		scanner := bufio.NewScanner(chunkBuffer)
 		for scanner.Scan() {
+
 			// ignore empty lines and send
 			line := bytes.TrimSpace(scanner.Bytes())
 			if len(line) > 0 {
@@ -245,6 +246,7 @@ func (proc *FastqChecker) Connect(previous *FastqHandler) {
 // TODO: I've removed the QC bits for now
 func (proc *FastqChecker) Run() {
 	log.Printf("now streaming reads...")
+
 	// count the number of reads and their lengths as we go
 	rawCount, lengthTotal := 0, 0
 	for read := range proc.input {
@@ -294,7 +296,7 @@ func (proc *ReadMapper) CollectReadStats() [3]int {
 func (proc *ReadMapper) Run() {
 	defer close(proc.output)
 
-	// if requested, set up a bloom filter to prevent unique k-mers being included in sketches TODO: this isn't used yet
+	// TODO: if requested, set up a bloom filter to prevent unique k-mers being included in sketches
 	//var bf *minhash.BloomFilter
 	//if proc.info.Sketch.BloomFilter {
 	//	bf = minhash.NewDefaultBloomFilter()

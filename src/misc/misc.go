@@ -16,7 +16,7 @@ import (
 // ErrorCheck is a function to throw error to the log and exit the program
 func ErrorCheck(msg error) {
 	if msg != nil {
-		log.Fatal("ERROR --> ", msg)
+		log.Fatalf("terminated\n\nERROR --> %v\n\n", msg)
 	}
 }
 
@@ -30,9 +30,7 @@ func CheckRequiredFlags(flags *pflag.FlagSet) error {
 		if len(requiredAnnotation) == 0 {
 			return
 		}
-
 		flagRequired := requiredAnnotation[0] == "true"
-
 		if flagRequired && !flag.Changed {
 			requiredError = true
 			flagName = flag.Name

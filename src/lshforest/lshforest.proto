@@ -12,12 +12,15 @@ message LSHforest {
     repeated Bucket Buckets = 4; // these sorted slices are equivalent to the prefix trees used in the LSH Forest paper
 }
 
+
+// Bucket is one tree of the LSH Forest
+// it is an array of Pairs, where each Pair is a sketch fragment (subsequence) and the graph windows which has that sketch fragment (Key)
 message Bucket {
     repeated Pair Pairs = 1;
 }
 
 message Pair {
-    string SubSequence = 1;
+    string SubSequence = 1; // this is empty until the index is needed, as protobuf3 doesn't like the non-UTF8 friendly encoding of the uint64s
     repeated string Keys = 2;    
     repeated uint64 SketchPartition = 3;
 }

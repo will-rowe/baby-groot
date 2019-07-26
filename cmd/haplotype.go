@@ -19,7 +19,6 @@ import (
 // the command line arguments
 var (
 	graphDirectory  *string                                                              // directory containing the weighted variation graphs
-	indexDirectory  *string                                                              // directory containing the index files
 	haploDir        *string                                                              // directory to write haplotype files to
 	graphList       []string                                                             // the collected GFA files
 	minIterations   *int                                                                 // minimum iterations for EM
@@ -45,13 +44,11 @@ var haplotypeCmd = &cobra.Command{
 // init the command line arguments
 func init() {
 	graphDirectory = haplotypeCmd.Flags().StringP("graphDirectory", "g", "", "directory containing the weighted variation graphs - required")
-	indexDirectory = haplotypeCmd.Flags().StringP("indexDirectory", "i", "", "directory containing the index files - required")
 	haploDir = haplotypeCmd.PersistentFlags().StringP("haploDir", "o", defaultHaploDir, "directory to write haplotype files to")
 	minIterations = haplotypeCmd.PersistentFlags().IntP("minIterations", "m", 50, "minimum iterations for EM")
 	maxIterations = haplotypeCmd.Flags().IntP("maxIterations", "n", 10000, "maximum iterations for EM")
 	cutOff = haplotypeCmd.Flags().Float64P("cutOff", "c", 0.05, "abundance cutoff for calling haplotypes")
 	haplotypeCmd.MarkFlagRequired("graphDirectory")
-	haplotypeCmd.MarkFlagRequired("indexDirectory")
 	RootCmd.AddCommand(haplotypeCmd)
 }
 
@@ -82,6 +79,7 @@ func runHaplotype() {
 	log.Printf("\tabundance cut off reporting haplotypes: %0.2f", *cutOff)
 	log.Printf("\tprocessors: %d", *proc)
 	log.Print("loading the index...")
+	fmt.Println(*indexDir + "/groot.gg")
 	info := new(pipeline.Info)
 	misc.ErrorCheck(info.Load(*indexDir + "/groot.gg"))
 	if info.Version != version.VERSION {
@@ -147,8 +145,8 @@ func runHaplotype() {
 
 // haplotypeParamCheck is a function to check user supplied parameters
 func haplotypeParamCheck() error {
-	misc.ErrorCheck(misc.CheckDir(*indexDirectory))
-	misc.ErrorCheck(misc.CheckFile(*indexDirectory + "/groot.gg"))
+	misc.ErrorCheck(misc.CheckDir(*indexDir))
+	misc.ErrorCheck(misc.CheckFile(*indexDir + "/groot.gg"))
 	misc.ErrorCheck(misc.CheckDir(*graphDirectory))
 	graphs, err := filepath.Glob(*graphDirectory + "/groot-graph-*.gfa")
 	if err != nil {

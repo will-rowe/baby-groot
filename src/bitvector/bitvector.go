@@ -96,6 +96,8 @@ func maxSize() int {
 		maxSize = 64
 	case "js":
 		maxSize = 64
+	case "wasm":
+		maxSize = 64
 	default:
 		maxSize = 32
 	}

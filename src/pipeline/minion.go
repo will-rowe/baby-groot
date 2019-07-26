@@ -85,6 +85,8 @@ func (minion *minion) start() {
 				if mapped > 1 {
 					minion.multimappedCount++
 				}
+
+				// tell the boss that a read has been processed
 				minion.wg.Done()
 
 			// end the minion go function if a stop signal has been sent
@@ -95,10 +97,15 @@ func (minion *minion) start() {
 	}()
 }
 
-// finish is a method to close down a minion, after checking it isn't currently working on something. It returns the number of reads it has processed, how many mapped and how many had multiple mappings
+// finish is a method to properly stop and close down a minion
 func (minion *minion) finish() (int, int, int) {
-	minion.wg.Wait()
-	close(minion.stop)
+
+	// close down the input channel
 	close(minion.inputChannel)
+
+	// break out of the minion's go routine
+	close(minion.stop)
+
+	// return the counts from this minion
 	return minion.readCount, minion.mappedCount, minion.multimappedCount
 }

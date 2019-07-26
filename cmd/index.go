@@ -17,15 +17,13 @@ import (
 
 // the command line arguments
 var (
-	kmerSize      *int                                                             // size of k-mer
-	sketchSize    *int                                                             // size of MinHash sketch
-	windowSize    *int                                                             // length of query reads (used during alignment subcommand), needed as window length should ~= read length
-	jsThresh      *float64                                                         // minimum Jaccard similarity for LSH forest query
-	kmvSketch     *bool                                                            // use the K-Minimum Values MinHash algorithm instead of the K-Hash Functions
-	msaDir        *string                                                          // directory containing the input MSA files
-	msaList       []string                                                         // the collected MSA files
-	outDir        *string                                                          // directory to save index files and log to
-	defaultOutDir = "./groot-index-" + string(time.Now().Format("20060102150405")) // a default dir to store the index files
+	kmerSize   *int     // size of k-mer
+	sketchSize *int     // size of MinHash sketch
+	windowSize *int     // length of query reads (used during alignment subcommand), needed as window length should ~= read length
+	jsThresh   *float64 // minimum Jaccard similarity for LSH forest query
+	kmvSketch  *bool    // use the K-Minimum Values MinHash algorithm instead of the K-Hash Functions
+	msaDir     *string  // directory containing the input MSA files
+	msaList    []string // the collected MSA files
 )
 
 // the index command (used by cobra)
@@ -48,8 +46,7 @@ func init() {
 	windowSize = indexCmd.Flags().IntP("windowSize", "w", 100, "size of window to sketch graph traversals with")
 	jsThresh = indexCmd.Flags().Float64P("jsThresh", "j", 0.99, "minimum Jaccard similarity for a seed to be recorded")
 	kmvSketch = indexCmd.Flags().Bool("kmv", false, "use the KMV MinHash algorithm instead of KHF")
-	msaDir = indexCmd.Flags().StringP("msaDir", "i", "", "directory containing the clustered references (MSA files) - required")
-	outDir = indexCmd.PersistentFlags().StringP("outDir", "o", defaultOutDir, "directory to save index files to")
+	msaDir = indexCmd.Flags().StringP("msaDir", "m", "", "directory containing the clustered references (MSA files) - required")
 	indexCmd.MarkFlagRequired("msaDir")
 	RootCmd.AddCommand(indexCmd)
 }
@@ -100,7 +97,7 @@ func runIndex() {
 		KMVsketch:  *kmvSketch,
 		JSthresh:   *jsThresh,
 		WindowSize: *windowSize,
-		IndexDir:   *outDir,
+		IndexDir:   *indexDir,
 	}
 
 	// create the pipeline
@@ -124,9 +121,9 @@ func runIndex() {
 	log.Printf("\tnumber of processes added to the indexing pipeline: %d\n", indexingPipeline.GetNumProcesses())
 	log.Print("creating graphs, sketching traversals and indexing...")
 	indexingPipeline.Run()
-	log.Printf("writing index files in \"%v\"...", *outDir)
-	misc.ErrorCheck(info.SaveDB(*outDir + "/groot.lshf"))
-	misc.ErrorCheck(info.Dump(*outDir + "/groot.gg"))
+	log.Printf("writing index files in \"%v\"...", *indexDir)
+	misc.ErrorCheck(info.SaveDB(*indexDir + "/groot.lshf"))
+	misc.ErrorCheck(info.Dump(*indexDir + "/groot.gg"))
 	log.Printf("finished in %s", time.Since(start))
 }
 
@@ -149,7 +146,7 @@ func indexParamCheck() error {
 		msaList = append(msaList, msa)
 	}
 	if len(msas) == 0 {
-		return fmt.Errorf("no MSA files found that passed the file checks")
+		return fmt.Errorf("no MSA files found that passed the file checks (make sure filenames follow 'clusterXXX.msa' convention)")
 	}
 	log.Printf("\tnumber of MSA files: %d", len(msas))
 
@@ -157,9 +154,9 @@ func indexParamCheck() error {
 	if *kmerSize > *windowSize {
 		return fmt.Errorf("supplied k-mer size greater than read length")
 	}
-	// setup the outDir
-	if _, err := os.Stat(*outDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(*outDir, 0700); err != nil {
+	// setup the indexDir
+	if _, err := os.Stat(*indexDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(*indexDir, 0700); err != nil {
 			return fmt.Errorf("can't create specified output directory")
 		}
 	}

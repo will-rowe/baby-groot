@@ -16,9 +16,14 @@ import (
 	"github.com/will-rowe/baby-groot/src/version"
 )
 
+// MINION_MULTIPLIER is a temporary way of setting the number of minions used for mapping reads
+// it multiplies the number of available processors, yielding the number of concurrent processes for mapping reads
+// at some stage, I want to benchmark how many minions can be mapping reads whilst keeping RAM usage reasonable
+// there is also the bottleneck of accessing the LSH Forest (and to some extent the graphs)
+const MINION_MULTIPLIER = 1
+
 // the command line arguments
 var (
-	indexDir           *string                                                           // directory containing the index files
 	fastq              *[]string                                                         // list of FASTQ files to align
 	fasta              *bool                                                             // flag to treat input as fasta sequences
 	bloomFilter        *bool                                                             // flag to use a bloom filter in order to prevent unique k-mers being used during sketching
@@ -43,16 +48,13 @@ var sketchCmd = &cobra.Command{
 
 // init the command line arguments
 func init() {
-	indexDir = sketchCmd.Flags().StringP("indexDir", "i", "", "directory containing the index files - required")
 	fastq = sketchCmd.Flags().StringSliceP("fastq", "f", []string{}, "FASTQ file(s) to align")
 	fasta = sketchCmd.Flags().Bool("fasta", false, "if set, the input will be treated as fasta sequence(s) (experimental feature)")
 	bloomFilter = sketchCmd.Flags().Bool("bloomFilter", false, "if set, a bloom filter will be used to stop unique k-mers being added to sketches")
 	minKmerCoverage = sketchCmd.Flags().IntP("minKmerCov", "k", 1, "minimum k-mer coverage per base of a segment")
 	minSegmentCoverage = sketchCmd.Flags().Float64P("minSegCov", "c", 0.9, "minimum proportion of graph segment bases that must be covered by reads")
 	graphDir = sketchCmd.PersistentFlags().StringP("graphDir", "o", defaultGraphDir, "directory to save variation graphs to")
-	sketchCmd.MarkFlagRequired("indexDir")
 	RootCmd.AddCommand(sketchCmd)
-
 }
 
 // runAlign is the main function for the sketch sub-command
@@ -121,7 +123,7 @@ func runSketch() {
 	}
 
 	// add the sketch information to the existing groot runtime information
-	info.NumProc = *proc * 1
+	info.NumProc = *proc * MINION_MULTIPLIER
 	info.Profiling = *profiling
 	info.Sketch = pipeline.SketchCmd{
 		Fasta:           *fasta,

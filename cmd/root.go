@@ -29,8 +29,9 @@ import (
 
 // the command line arguments
 var (
-	proc      *int    // number of processors to use
+	indexDir  *string // directory for groot to write/read index files
 	logFile   *string // name to use for log file
+	proc      *int    // number of processors to use
 	profiling *bool   // create profile for go pprof
 )
 
@@ -65,8 +66,9 @@ func Execute() {
 
 // init the command line arguments
 func init() {
-	proc = RootCmd.PersistentFlags().IntP("processors", "p", 1, "number of processors to use")
+	indexDir = RootCmd.PersistentFlags().StringP("indexDir", "i", "", "directory for to write/read the GROOT index files - required")
 	logFile = RootCmd.PersistentFlags().String("log", "", "filename for log file, STDOUT used by default")
+	proc = RootCmd.PersistentFlags().IntP("processors", "p", 1, "number of processors to use")
 	profiling = RootCmd.PersistentFlags().Bool("profiling", false, "create the files needed to profile GROOT using the go tool pprof")
-
+	RootCmd.MarkPersistentFlagRequired("indexDir")
 }

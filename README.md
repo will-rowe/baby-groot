@@ -1,6 +1,6 @@
 <div align="center">
 					<object type="image/png" data="wasm/assets/css/images/baby-groot.svg" width="250">
-						<img src="https://github.com/will-rowe/baby-groot/raw/master/baby-groot-logo.png" alt="logo" width="250">
+						<img src="https://github.com/will-rowe/baby-groot/raw/master/misc/baby-groot-logo.png" alt="logo" width="250">
 					</object>
     <h3>BABY GROOT & THE WASP</h3>
 </div>
