@@ -92,8 +92,9 @@ func (IndexWrapper *IndexWrapper) Add(graphWindow *Key) error {
 // GetKey will return the Key for the stringified version
 func (IndexWrapper *IndexWrapper) GetKey(keystring string) (*Key, error) {
 	IndexWrapper.Lock()
-	defer IndexWrapper.Unlock()
-	if returnKey, ok := IndexWrapper.forest.KeyLookup[keystring]; ok {
+	returnKey, ok := IndexWrapper.forest.KeyLookup[keystring]
+	IndexWrapper.Unlock()
+	if ok {
 		return returnKey, nil
 	}
 	return nil, fmt.Errorf("key not found in LSH Forest: %v", keystring)
