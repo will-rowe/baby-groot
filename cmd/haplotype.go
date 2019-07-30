@@ -44,7 +44,7 @@ var haplotypeCmd = &cobra.Command{
 // init the command line arguments
 func init() {
 	graphDirectory = haplotypeCmd.Flags().StringP("graphDirectory", "g", "", "directory containing the weighted variation graphs - required")
-	haploDir = haplotypeCmd.PersistentFlags().StringP("haploDir", "o", defaultHaploDir, "directory to write haplotype files to")
+	haploDir = haplotypeCmd.PersistentFlags().StringP("outDir", "o", defaultHaploDir, "directory to write haplotype files to")
 	minIterations = haplotypeCmd.PersistentFlags().IntP("minIterations", "m", 50, "minimum iterations for EM")
 	maxIterations = haplotypeCmd.Flags().IntP("maxIterations", "n", 10000, "maximum iterations for EM")
 	cutOff = haplotypeCmd.Flags().Float64P("cutOff", "c", 0.05, "abundance cutoff for calling haplotypes")

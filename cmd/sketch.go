@@ -51,9 +51,9 @@ func init() {
 	fastq = sketchCmd.Flags().StringSliceP("fastq", "f", []string{}, "FASTQ file(s) to align")
 	fasta = sketchCmd.Flags().Bool("fasta", false, "if set, the input will be treated as fasta sequence(s) (experimental feature)")
 	bloomFilter = sketchCmd.Flags().Bool("bloomFilter", false, "if set, a bloom filter will be used to stop unique k-mers being added to sketches")
-	minKmerCoverage = sketchCmd.Flags().IntP("minKmerCov", "k", 1, "minimum k-mer coverage per base of a segment")
-	minSegmentCoverage = sketchCmd.Flags().Float64P("minSegCov", "c", 0.9, "minimum proportion of graph segment bases that must be covered by reads")
-	graphDir = sketchCmd.PersistentFlags().StringP("graphDir", "o", defaultGraphDir, "directory to save variation graphs to")
+	minKmerCoverage = sketchCmd.Flags().IntP("minKmerCov", "x", 1, "minimum k-mer coverage per aligned segment base")
+	minSegmentCoverage = sketchCmd.Flags().Float64P("minSegCov", "y", 0.9, "minimum proportion of graph segment bases that must be covered by reads")
+	graphDir = sketchCmd.PersistentFlags().StringP("graphDir", "g", defaultGraphDir, "directory to save variation graphs to")
 	RootCmd.AddCommand(sketchCmd)
 }
 
@@ -88,7 +88,7 @@ func runSketch() {
 	} else {
 		log.Printf("\tignoring unique k-mers: false")
 	}
-	log.Printf("\tminimum k-mer coverage per graph base: %d", *minKmerCoverage)
+	log.Printf("\tminimum k-mer coverage: %d", *minKmerCoverage)
 	log.Printf("\tminimum graph segment coverage: %0.0f%%", *minSegmentCoverage*100)
 	log.Printf("\tprocessors: %d", *proc)
 	for _, file := range *fastq {
