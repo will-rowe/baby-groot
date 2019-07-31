@@ -11,9 +11,10 @@ function gotMem(pointer) {
 }
 
 // getGraphs gets the groot graphs ready for loading
-function getGraphs(indexURL) {
+function getGraphs(graphURL) {
+
     var reader = new FileReader();
-    fetch(indexURL).then(function(response) {
+    fetch(graphURL).then(function(response) {
         if (!response.ok) {
             statusUpdate("status", "could not download groot graphs!")
         }
@@ -26,19 +27,19 @@ function getGraphs(indexURL) {
     });
     
     reader.onload = (ev) => {
-        bytes = new Uint8Array(ev.target.result);
-        if (bytes === null) {
+        graphBytes = new Uint8Array(ev.target.result);
+        if (graphBytes === null) {
             statusUpdate("status", "could not download groot graphs!")
         } else {
-            initGraphMem(bytes.length);
+            initGraphMem(graphBytes.length);
         }
     }
 }
 
 // getLSHforest gets the index ready for loading
-function getLSHforest(indexURL) {
+function getLSHforest(lshfURL) {
     var reader = new FileReader();
-    fetch(indexURL).then(function(response) {
+    fetch(lshfURL).then(function(response) {
         if (!response.ok) {
             statusUpdate("status", "could not download index!")
         }
@@ -49,13 +50,12 @@ function getLSHforest(indexURL) {
     .catch(function(error) {
         console.log(error);
     });
-    
     reader.onload = (ev) => {
-        bytes = new Uint8Array(ev.target.result);
-        if (bytes === null) {
+        lshfBytes = new Uint8Array(ev.target.result);
+        if (lshfBytes === null) {
             statusUpdate("status", "could not download index!")
         } else {
-            initIndexMem(bytes.length);
+            initIndexMem(lshfBytes.length);
         }
     }
 }

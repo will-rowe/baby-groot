@@ -149,14 +149,14 @@
       }
 
       // load the default index
-      //getGraphs("groot-files/argannot-k31-s42-w300/groot.gg");
-      //getLSHforest("groot-files/argannot-k31-s42-w300/groot.lshf");
+      getGraphs("assets/groot-files/groot.gg");
+      getLSHforest("assets/groot-files/groot.lshf");
 
-      getGraphs("assets/groot-files/dummy-index/groot.gg");
-      getLSHforest("assets/groot-files/dummy-index/groot.lshf");
 
+      
       // turn the spinner off
       document.getElementById("spinner").setAttribute('hidden', '');
+
     }
 
     // listen out for index selection -- TODO: I don't think this isn't listening to the right selecter
@@ -174,7 +174,28 @@
           inputCheck();
         }, 10);
     });
+  </script>
 
+
+  <!--- JS for WASM --->
+  <script type="text/javascript">
+
+    // memoryBytes is an Uint8Array pointing to the webassembly linear memory
+    //let memoryBytes = new WebAssembly.Memory({initial:32767, maximum:65536});
+    //let mod, inst, bytes;
+    let mod, inst, bytes, memoryBytes;
+    const go = new Go();
+
+    WebAssembly.instantiateStreaming(fetch("baby-groot.wasm"), go.importObject).then((result) => {
+      mod = result.module;
+      inst = result.instance;
+      memoryBytes = new Uint8Array(inst.exports.mem.buffer);
+      run();
+    });
+    statusUpdate('status', 'GROOT is ready!');
+    async function run() {
+            await go.run(inst);
+    }
   </script>
 
   <!--- JS for modals --->
@@ -207,6 +228,8 @@
 
   <!--- JS for FASTQ files --->
   <script>
+    var fastqStreamer;
+
     function initInputFiles() {
 
       // set up the FASTQ input
@@ -222,12 +245,14 @@
         filedrag.style.display = "block";
       }
     }
+
     function FileDragHover(e) {
           e.stopPropagation();
           e.preventDefault();
           e.target.className = (e.type == "dragover" ? "hover" : "");
     }
-    var fastqStreamer;
+
+
     function FileSelectHandler(e) {
 
           // cancel event and hover styling
@@ -257,28 +282,6 @@
 
           // get the FASTQ streamer ready
           loadFileList(fastqList);
-    }
-  </script>
-
-  <!--- JS for WASM --->
-  <script type="text/javascript">
-
-    // memoryBytes is an Uint8Array pointing to the webassembly linear memory
-    //let memoryBytes = new WebAssembly.Memory({initial:32767, maximum:65536});
-
-    
-    let mod, inst, bytes, memoryBytes;
-    const go = new Go();
-
-    WebAssembly.instantiateStreaming(fetch("baby-groot.wasm"), go.importObject).then((result) => {
-      mod = result.module;
-      inst = result.instance;
-      memoryBytes = new Uint8Array(inst.exports.mem.buffer);
-      run();
-    });
-    statusUpdate('status', 'GROOT is ready!');
-    async function run() {
-            await go.run(inst);
     }
   </script>
 
