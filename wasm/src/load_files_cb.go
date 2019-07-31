@@ -8,8 +8,8 @@ import (
 	"syscall/js"
 	"unsafe"
 
-	"baby-groot/src/lshforest"
-	"baby-groot/src/pipeline"
+	"github.com/will-rowe/baby-groot/src/lshforest"
+	"github.com/will-rowe/baby-groot/src/pipeline"
 )
 
 // closeFASTQchan

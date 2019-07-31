@@ -7,7 +7,7 @@ import (
 	"syscall/js"
 	"time"
 
-	"../src/pipeline"
+	"github.com/will-rowe/baby-groot/src/pipeline"
 )
 
 // setupGrootCb sets up the GROOT callback and runs GROOT when everything is set

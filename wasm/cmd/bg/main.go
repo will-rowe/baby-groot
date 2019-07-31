@@ -1,7 +1,7 @@
 package main
 
 import (
-	bg "baby-groot/wasm/src"
+	bg "github.com/will-rowe/baby-groot/wasm/src"
 )
 
 func main() {

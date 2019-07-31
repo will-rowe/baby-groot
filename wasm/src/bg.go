@@ -5,7 +5,7 @@ package bg
 import (
 	"syscall/js"
 
-	"baby-groot/src/pipeline"
+	"github.com/will-rowe/baby-groot/src/pipeline"
 )
 
 // GrootWASM

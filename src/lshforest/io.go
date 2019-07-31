@@ -32,7 +32,7 @@ func (IndexWrapper *IndexWrapper) Load(path string) error {
 	return IndexWrapper.LoadFromBytes(data)
 }
 
-// LoadFromBytes is a method to populate an LSH Forest instance using a byte slice from msgPack
+// LoadFromBytes is a method to populate an LSH Forest instance using a byte slice
 func (IndexWrapper *IndexWrapper) LoadFromBytes(data []byte) error {
 	if len(data) == 0 {
 		return fmt.Errorf("no data received to load the LSH Forest from")
