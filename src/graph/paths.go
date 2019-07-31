@@ -29,9 +29,7 @@ func (grootGraphPaths grootGraphPaths) Less(i, j int) bool {
 }
 
 // RunEM is a method to run EM on an approximately weighted variation graph
-func (GrootGraph *GrootGraph) RunEM() error {
-	numIterations := 10000
-	minIterations := 50
+func (GrootGraph *GrootGraph) RunEM(minIterations, numIterations int) error {
 
 	// make the map of equivalence classes
 	ecMap := make(map[uint64][]uint32)
@@ -44,7 +42,7 @@ func (GrootGraph *GrootGraph) RunEM() error {
 			return fmt.Errorf("duplicate node ID found in graph")
 		}
 		ecMap[node.SegmentID] = node.PathIDs
-		counts[node.SegmentID] = (node.KmerFreq / float64(len(node.Sequence)))
+		counts[node.SegmentID] = (float64(node.KmerFreq) / float64(len(node.Sequence)))
 	}
 
 	// set up the EM
@@ -69,7 +67,7 @@ func (GrootGraph *GrootGraph) RunEM() error {
 }
 
 // ProcessEMpaths is a method to process the paths after EM has been run
-func (GrootGraph *GrootGraph) ProcessEMpaths(cutoff, totalKmers float64) error {
+func (GrootGraph *GrootGraph) ProcessEMpaths(cutoff float64, totalKmers int) error {
 	if GrootGraph.EMiterations == 0 {
 		return fmt.Errorf("EM has not been run for this graph")
 	}
@@ -81,16 +79,18 @@ func (GrootGraph *GrootGraph) ProcessEMpaths(cutoff, totalKmers float64) error {
 	for i := 0; i < len(GrootGraph.alpha); i++ {
 		rho[i] = GrootGraph.alpha[i] / pathsTotal
 	}
+
 	// rank EM paths, apply cutoff and store
 	GrootGraph.abundances = make(map[uint32]float64)
 	for i, val := range rho {
-		kmerShare := (val * GrootGraph.KmerTotal) / totalKmers
-		// delete any path not meeting the supplied cutoff
-		if kmerShare <= cutoff {
-			delete(GrootGraph.Paths, uint32(i))
-		} else {
+		kmerShare := (val * float64(GrootGraph.KmerTotal)) / float64(totalKmers)
+
+		// ensure kept paths are above cutoff
+		if kmerShare >= cutoff {
 			GrootGraph.abundances[uint32(i)] = kmerShare
+			continue
 		}
+		delete(GrootGraph.Paths, uint32(i))
 	}
 	return nil
 }

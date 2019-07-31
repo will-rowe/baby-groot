@@ -86,6 +86,7 @@ func runIndex() {
 		log.Printf("\tMinHash algorithm: K-Hash Functions")
 	}
 	log.Printf("\tgraph window size: %d", *windowSize)
+	log.Printf("\tminimum Jaccard similarity: %0.2f", *jsThresh)
 
 	// record the runtime information for the index sub command
 	info := &pipeline.Info{

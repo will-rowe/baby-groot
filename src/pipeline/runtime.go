@@ -35,9 +35,8 @@ type IndexCmd struct {
 type SketchCmd struct {
 	Fasta           bool
 	BloomFilter     bool
-	MinKmerCoverage int
-	MinBaseCoverage float64
-	TotalKmers      float64
+	MinKmerCoverage float64
+	TotalKmers      uint64
 }
 
 // HaploCmd stores the runtime info for the haplotype command

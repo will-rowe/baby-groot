@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/will-rowe/baby-groot/src/bitvector"
 	"github.com/will-rowe/baby-groot/src/lshforest"
 	"github.com/will-rowe/baby-groot/src/seqio"
 	"github.com/will-rowe/gfa"
@@ -16,14 +15,13 @@ import (
 
 // GrootGraph is the variation graph implementation used by GROOT
 type GrootGraph struct {
-	sync.RWMutex // lock the graph for read/write access (only used to increment the KmerTotal currently)
 	GrootVersion string
 	GraphID      uint32
 	SortedNodes  []*GrootGraphNode  // essentially, this is the graph - a topologically sorted array of nodes
 	Paths        map[uint32][]byte  // lookup to relate PathIDs in each node to a path name
 	Lengths      map[uint32]int     // lengths of sequences held in graph (lookup key corresponds to key in Paths)
 	NodeLookup   map[uint64]int     // this map returns a the position of a node in the SortedNodes array, using the node segmentID as the locator
-	KmerTotal    float64            // the total number of k-mers projected onto the graph
+	KmerTotal    uint64             // the total number of k-mers projected onto the graph
 	EMiterations int                // the number of EM iterations ran
 	alpha        []float64          // indices match the Paths
 	abundances   map[uint32]float64 // abundances of kept paths, relative to total k-mers processed during sketching
@@ -63,19 +61,20 @@ func CreateGrootGraph(gfaInstance *gfa.GFA, id int) (*GrootGraph, error) {
 		if err != nil {
 			return nil, err
 		}
-		if float64(kc) != 0.0 {
+		if kc != 0.0 {
 			kmerCount = float64(kc)
 		}
 		newNode := &GrootGraphNode{
-			SegmentID: uint64(segID),
-			Sequence:  seq.Seq,
-			Coverage:  bitvector.NewBitVector(len(seq.Seq)),
-			KmerFreq:  kmerCount,
+			SegmentID:     uint64(segID),
+			SegmentLength: float64(len(seq.Seq)),
+			Sequence:      seq.Seq,
+			KmerFreq:      kmerCount,
 		}
+
 		// store the new node in the graph and record it's location in the silce by using the NodeLookup map
 		newGraph.SortedNodes = append(newGraph.SortedNodes, newNode)
 		newGraph.NodeLookup[uint64(segID)] = nodeIterator
-		newGraph.KmerTotal += kmerCount
+		newGraph.KmerTotal += uint64(kmerCount)
 	}
 	// collect all the links from the GFA instance and add edges to the nodes
 	links, err := gfaInstance.GetLinks()
@@ -290,32 +289,21 @@ func (GrootGraph *GrootGraph) WindowGraph(windowSize, kmerSize, sketchSize int, 
 }
 
 // IncrementSubPath is a method to adjust the weight of segments within a subpath through the graph
-////////////
-// BABY GROOT
-// given a subpath through a graph, the offset in the first segment, the end point in the final segment
-// combined with the window size and number of k-mers used for sketching the graph
-// increment the weight of each segment contained in that subpath by their share of the k-mer coverage for the window
-///////////
-func (GrootGraph *GrootGraph) IncrementSubPath(subPath []uint64, offSet uint32, windowSize int, kmerSize int) error {
+//  - given a subpath through a graph, the offset in the first segment, and the number of k-mers in this subpath
+//  - increment the weight of each segment contained in that subpath by their share of the k-mer coverage for the window
+func (GrootGraph *GrootGraph) IncrementSubPath(subPath []uint64, offSet uint32, numKmers float64) error {
 
 	// check the subpath contains segments
 	if len(subPath) < 1 {
 		return fmt.Errorf("subpath encountered that does not include any segments")
 	}
 
-	// get the total number of k-mers this subpath is based on
-	numKmers := float64(windowSize - kmerSize + 1)
-
 	// if the subPath is only one segment, then it is straightforward to increment
 	if len(subPath) == 1 {
-		// get the node
 		node, err := GrootGraph.GetNode(subPath[0])
 		if err != nil {
 			return fmt.Errorf("could not perform nodelookup to increment subpath weight")
 		}
-
-		// add the node coverage
-		node.AddCoverage(offSet, windowSize)
 
 		// give this segment all the k-mers for this sketch
 		if err := node.IncrementKmerFreq(numKmers); err != nil {
@@ -326,119 +314,83 @@ func (GrootGraph *GrootGraph) IncrementSubPath(subPath []uint64, offSet uint32, 
 	}
 
 	// otherwise, there are multiple segments in the path and we now work out the proportion of k-mer coverage belonging to each segment
-	totalBases := 0
+	segLengths := make([]float64, len(subPath))
+	kmerShare := make([]float64, len(subPath))
+	totalLength := 0.0
 
-	// iterate over the segments in the subpath
+	// get all the segment lengths in the subpath
 	for i := 0; i < len(subPath); i++ {
-		// lookup the node in the graph
 		node, err := GrootGraph.GetNode(subPath[i])
 		if err != nil {
 			return err
 		}
-		nodeLength := len(node.Sequence)
-
-		// calculate the increment based on the segment length and any offset for the sketch that has been projected onto the graph
-		increment := 0.0
-
-		switch i {
-		// if this is the first node. There may be an offset so only apply increment for k-mers for the covered portion of the segment
-		case 0:
-			// add the node coverage
-			node.AddCoverage(offSet, windowSize)
-
-			// mark that we have checked these bases
-			totalBases += (nodeLength - int(offSet))
-
-			// calculate it's share of the k-mers
-			increment = (float64(totalBases) / float64(windowSize)) * numKmers
-
-			// increment the current segment with it's share of the k-mers
-			if err := node.IncrementKmerFreq(increment); err != nil {
-				return err
-			}
-			continue
-
-		// if this is the final node, check where the path finishes within this segment
-		case (len(subPath) - 1):
-			// determine how much of the final node is covered
-			coveredPortion := windowSize - totalBases
-
-			// add the node coverage
-			node.AddCoverage(0, coveredPortion)
-
-			// calculate it's share of the k-merst
-			increment = (float64(coveredPortion) / float64(windowSize)) * numKmers
-
-			// increment the current segment with it's share of the k-mers
-			if err := node.IncrementKmerFreq(increment); err != nil {
-				return err
-			}
-
-			// mark that we have checked these bases
-			totalBases += coveredPortion
-			continue
-
-			// the default is that the whole segment is covered, so just use the ratio of segment length to windowSize
-		default:
-			// add the node coverage
-			node.AddCoverage(0, nodeLength)
-
-			// calculate it's share of the k-mers
-			increment = (float64(nodeLength) / float64(windowSize)) * numKmers
-
-			// increment the current segment with it's share of the k-mers
-			if err := node.IncrementKmerFreq(increment); err != nil {
-				return err
-			}
-
-			// mark that we have checked these bases
-			totalBases += nodeLength
-			continue
+		if (i == 0) && (offSet != 0) {
+			segLengths[i] = node.SegmentLength - float64(offSet) // special case with first segment in the case of an offset
+		} else {
+			segLengths[i] = node.SegmentLength
 		}
+		totalLength += segLengths[i]
 	}
-	// check we have covered enough bases from the subpath segments to match the window size
-	if totalBases != windowSize {
-		return fmt.Errorf("could not get enough bases from the subpath segments")
+
+	// work out how many k-mers each segment gets
+	// TODO: without knowing read length, the final segment may get a disproportionate number of k-mers -- look for alternatives to address this
+	for i := 0; i < len(subPath); i++ {
+		kmerShare[i] = (segLengths[i] / totalLength) * numKmers
+	}
+
+	// now iterate over the segments again, incrementing their weights
+	for i := 0; i < len(subPath); i++ {
+		node, err := GrootGraph.GetNode(subPath[i])
+		if err != nil {
+			return err
+		}
+		if err := node.IncrementKmerFreq(kmerShare[i]); err != nil {
+			return err
+		}
 	}
 
 	// record the number of kmers projected onto the graph
-	GrootGraph.IncrementKmerCount(numKmers)
+	GrootGraph.IncrementKmerCount(uint64(numKmers))
 
 	return nil
 }
 
 // Prune is a method to remove paths and segments from the graph if they have insufficient coverage
-// returns false if pruning would result in no paths through the graph remaining
-func (GrootGraph *GrootGraph) Prune(minKmerCoverage, minSegmentCoverage float64) bool {
+// returns false if pruning results in no paths through the graph remaining
+func (GrootGraph *GrootGraph) Prune(minKmerCoverage float64) bool {
 	removePathID := make(map[uint32]struct{})
 	removeNode := make(map[uint64]struct{})
 
 	// first pass through the graph
 	for _, node := range GrootGraph.SortedNodes {
-		// check to see if the k-mer count or base coverage for this node are below the supplied threshold
-		baseCoverage := float64(node.Coverage.PopCount()) / float64(len(node.Sequence))
-		//nodeCoverage := node.KmerFreq / float64(len(node.Sequence))
-		nodeCoverage := node.KmerFreq
-		if nodeCoverage < minKmerCoverage || baseCoverage < minSegmentCoverage {
-			// add the segmentID and the contained pathIDs to the removal lis
+
+		// get the per-base k-mer frequency for the node
+		perbaseCoverage := node.KmerFreq / node.SegmentLength
+
+		// if the coverage is too low for this node, add the segmentID and the contained pathIDs to the removal lists
+		if perbaseCoverage < minKmerCoverage {
 			for _, id := range node.PathIDs {
 				removePathID[id] = struct{}{}
 				removeNode[node.SegmentID] = struct{}{}
 			}
 		}
 	}
+
 	// if all the paths need removing, just exit now!
 	if len(removePathID) == len(GrootGraph.Paths) {
 		return false
 	}
+
 	// if it doesn't need pruning, return true
 	if len(removeNode) == 0 {
 		return true
 	}
+
 	// second pass through the graph to prune all the marked nodes and paths
 	// TODO: I'm just creating a new slice at the moment and copying nodes which aren't marked
 	// TODO: shall I try popping elements out of the original slices instead -- is that more efficient?
 	for i, node := range GrootGraph.SortedNodes {
+
 		// remove marked paths
 		updatedPathIDs := make([]uint32, 0, len(node.PathIDs))
 		for _, id := range node.PathIDs {
@@ -447,12 +399,15 @@ func (GrootGraph *GrootGraph) Prune(minKmerCoverage, minSegmentCoverage float64)
 			}
 		}
 		node.PathIDs = updatedPathIDs
+
 		// delete any marked nodes
 		if _, marked := removeNode[node.SegmentID]; marked {
+
 			// TODO: I've set the node to nil in the sorted node array - in order to keep the NodeLookup in order. But this isn't pretty and now requires you to check for nil when using the SortedNodes array
 			GrootGraph.SortedNodes[i] = nil
 			delete(GrootGraph.NodeLookup, node.SegmentID)
 		}
+
 		// remove any edges referencing deleted nodes
 		updatedEdges := make([]uint64, 0, len(node.OutEdges))
 		for _, edge := range node.OutEdges {
@@ -466,6 +421,7 @@ func (GrootGraph *GrootGraph) Prune(minKmerCoverage, minSegmentCoverage float64)
 	// if a path was removed by pruning, set it's length to 0
 	for id := range removePathID {
 		if _, path := GrootGraph.Paths[id]; path {
+
 			//delete(GrootGraph.Paths, id)
 			GrootGraph.Lengths[id] = 0
 		}
@@ -474,15 +430,12 @@ func (GrootGraph *GrootGraph) Prune(minKmerCoverage, minSegmentCoverage float64)
 }
 
 // GetNode takes a nodeID and returns a pointer to the corresponding node struct in the graph
+// Note: this is method does not allow concurrent map access
 func (GrootGraph *GrootGraph) GetNode(nodeID uint64) (*GrootGraphNode, error) {
-	GrootGraph.Lock()
-
-	// lookup the node in the graph
 	NodeLookup, ok := GrootGraph.NodeLookup[nodeID]
 	if !ok {
 		return nil, fmt.Errorf("can't find node %d in graph", nodeID)
 	}
-	GrootGraph.Unlock()
 	return GrootGraph.SortedNodes[NodeLookup], nil
 }
 
@@ -588,8 +541,6 @@ func (GrootGraph *GrootGraph) Graph2Seqs() (map[uint32][]byte, error) {
 }
 
 // IncrementKmerCount is a method to increment the counter for the number of kmers projected onto the graph
-func (GrootGraph *GrootGraph) IncrementKmerCount(inc float64) {
-	GrootGraph.Lock()
-	GrootGraph.KmerTotal += inc
-	GrootGraph.Unlock()
+func (GrootGraph *GrootGraph) IncrementKmerCount(increment uint64) {
+	GrootGraph.KmerTotal += increment
 }

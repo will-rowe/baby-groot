@@ -24,13 +24,12 @@ const MINION_MULTIPLIER = 1
 
 // the command line arguments
 var (
-	fastq              *[]string                                                         // list of FASTQ files to align
-	fasta              *bool                                                             // flag to treat input as fasta sequences
-	bloomFilter        *bool                                                             // flag to use a bloom filter in order to prevent unique k-mers being used during sketching
-	minKmerCoverage    *int                                                              // the minimum k-mer coverage per base of a segment
-	minSegmentCoverage *float64                                                          // percentage of the segment bases that had reads align
-	graphDir           *string                                                           // directory to save gfa graphs to
-	defaultGraphDir    = "./groot-graphs-" + string(time.Now().Format("20060102150405")) // a default graphDir
+	fastq           *[]string                                                         // list of FASTQ files to align
+	fasta           *bool                                                             // flag to treat input as fasta sequences
+	bloomFilter     *bool                                                             // flag to use a bloom filter in order to prevent unique k-mers being used during sketching
+	minKmerCoverage *int                                                              // the minimum k-mer coverage per base of a segment
+	graphDir        *string                                                           // directory to save gfa graphs to
+	defaultGraphDir = "./groot-graphs-" + string(time.Now().Format("20060102150405")) // a default graphDir
 )
 
 // sketchCmd is used by cobra
@@ -51,8 +50,7 @@ func init() {
 	fastq = sketchCmd.Flags().StringSliceP("fastq", "f", []string{}, "FASTQ file(s) to align")
 	fasta = sketchCmd.Flags().Bool("fasta", false, "if set, the input will be treated as fasta sequence(s) (experimental feature)")
 	bloomFilter = sketchCmd.Flags().Bool("bloomFilter", false, "if set, a bloom filter will be used to stop unique k-mers being added to sketches")
-	minKmerCoverage = sketchCmd.Flags().IntP("minKmerCov", "x", 1, "minimum k-mer coverage per aligned segment base")
-	minSegmentCoverage = sketchCmd.Flags().Float64P("minSegCov", "y", 0.9, "minimum proportion of graph segment bases that must be covered by reads")
+	minKmerCoverage = sketchCmd.Flags().IntP("minKmerCov", "c", 1, "minimum k-mer coverage per segment base")
 	graphDir = sketchCmd.PersistentFlags().StringP("graphDir", "g", defaultGraphDir, "directory to save variation graphs to")
 	RootCmd.AddCommand(sketchCmd)
 }
@@ -89,7 +87,6 @@ func runSketch() {
 		log.Printf("\tignoring unique k-mers: false")
 	}
 	log.Printf("\tminimum k-mer coverage: %d", *minKmerCoverage)
-	log.Printf("\tminimum graph segment coverage: %0.0f%%", *minSegmentCoverage*100)
 	log.Printf("\tprocessors: %d", *proc)
 	for _, file := range *fastq {
 		log.Printf("\tinput file: %v", file)
@@ -128,8 +125,7 @@ func runSketch() {
 	info.Sketch = pipeline.SketchCmd{
 		Fasta:           *fasta,
 		BloomFilter:     *bloomFilter,
-		MinKmerCoverage: *minKmerCoverage,
-		MinBaseCoverage: *minSegmentCoverage,
+		MinKmerCoverage: float64(*minKmerCoverage),
 	}
 
 	// create the pipeline
@@ -193,11 +189,6 @@ func alignParamCheck() error {
 		if err := os.MkdirAll(*graphDir, 0700); err != nil {
 			return fmt.Errorf("can't create specified output directory")
 		}
-	}
-
-	// check the thresholds
-	if *minSegmentCoverage < 0.0 || *minSegmentCoverage > 1.0 {
-		return fmt.Errorf("minimum base coverage must be between 0.0 and 1.0")
 	}
 
 	// set number of processors to use

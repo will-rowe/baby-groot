@@ -45,9 +45,9 @@ var haplotypeCmd = &cobra.Command{
 func init() {
 	graphDirectory = haplotypeCmd.Flags().StringP("graphDirectory", "g", "", "directory containing the weighted variation graphs - required")
 	haploDir = haplotypeCmd.PersistentFlags().StringP("outDir", "o", defaultHaploDir, "directory to write haplotype files to")
-	minIterations = haplotypeCmd.PersistentFlags().IntP("minIterations", "m", 50, "minimum iterations for EM")
-	maxIterations = haplotypeCmd.Flags().IntP("maxIterations", "n", 10000, "maximum iterations for EM")
-	cutOff = haplotypeCmd.Flags().Float64P("cutOff", "c", 0.05, "abundance cutoff for calling haplotypes")
+	minIterations = haplotypeCmd.PersistentFlags().IntP("minIterations", "x", 50, "minimum iterations for EM")
+	maxIterations = haplotypeCmd.Flags().IntP("maxIterations", "y", 10000, "maximum iterations for EM")
+	cutOff = haplotypeCmd.Flags().Float64P("cutOff", "z", 0.001, "abundance cutoff for calling haplotypes")
 	haplotypeCmd.MarkFlagRequired("graphDirectory")
 	RootCmd.AddCommand(haplotypeCmd)
 }
@@ -79,7 +79,7 @@ func runHaplotype() {
 	log.Printf("\tabundance cut off reporting haplotypes: %0.2f", *cutOff)
 	log.Printf("\tprocessors: %d", *proc)
 	log.Print("loading the index...")
-	fmt.Println(*indexDir + "/groot.gg")
+	log.Printf("\tgraph file: %v", *indexDir+"groot.gg")
 	info := new(pipeline.Info)
 	misc.ErrorCheck(info.Load(*indexDir + "/groot.gg"))
 	if info.Version != version.VERSION {
@@ -91,12 +91,12 @@ func runHaplotype() {
 	log.Printf("\twindow size used in indexing: %d\n", info.Index.WindowSize)
 	log.Print("loading the graphs...")
 	log.Printf("\tnumber of weighted GFAs for haplotyping: %d", len(graphList))
-	log.Printf("\tnumber of k-mers projected onto graphs during sketching: %.0f\n", info.Sketch.TotalKmers)
 
 	// add the haplotype information to the existing groot runtime information
 	info.Haplotype = pipeline.HaploCmd{
 		MinIterations: *minIterations,
 		MaxIterations: *maxIterations,
+		Cutoff:        *cutOff,
 		HaploDir:      *haploDir,
 	}
 
@@ -122,9 +122,11 @@ func runHaplotype() {
 	// submit each process to the pipeline and run it
 	haplotypePipeline.AddProcesses(gfaReader, emPathFinder, haploParser)
 	log.Printf("\tnumber of processes added to the haplotype pipeline: %d\n", haplotypePipeline.GetNumProcesses())
+	log.Printf("finding alleles...")
 	haplotypePipeline.Run()
 	if len(info.Store) != 0 {
-		log.Printf("saving graphs and haplotype sequences...\n")
+		log.Printf("writing files to \"%v/\"...\n", *haploDir)
+		pathNames := []string{}
 		for graphID, g := range info.Store {
 			fileName := fmt.Sprintf("%v/groot-graph-%d-haplotype", *haploDir, graphID)
 			_, err := g.SaveGraphAsGFA(fileName+".gfa", info.Haplotype.TotalKmers)
@@ -135,10 +137,20 @@ func runHaplotype() {
 			misc.ErrorCheck(err)
 			for id, seq := range seqs {
 				fmt.Fprintf(fh, ">%v\n%v\n", string(g.Paths[id]), string(seq))
+				pathNames = append(pathNames, string(g.Paths[id]))
 			}
 			fh.Close()
 		}
-		log.Printf("\tsaved files to\"%v/\"", *haploDir)
+		log.Printf("\tsaved haplotype graphs")
+		log.Printf("\tsaved haplotype sequences")
+		fileName := fmt.Sprintf("%v/summary.txt", *haploDir)
+		fh, err := os.Create(fileName)
+		misc.ErrorCheck(err)
+		for _, name := range pathNames {
+			fmt.Fprintf(fh, "%v\n", name)
+		}
+		fh.Close()
+		log.Printf("\tsaved summary")
 	}
 	log.Printf("finished in %s", time.Since(start))
 }
@@ -162,7 +174,7 @@ func haplotypeParamCheck() error {
 			return fmt.Errorf("can't create specified output directory")
 		}
 	}
-	// check the probability
+	// check the cutoff
 	if *cutOff > 1.0 || *cutOff < 0.0 {
 		return fmt.Errorf("cutOff must be between 0.0 and 1.0")
 	}

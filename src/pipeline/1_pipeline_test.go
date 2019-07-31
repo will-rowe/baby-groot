@@ -40,7 +40,6 @@ var indexCmd = IndexCmd{
 
 var sketchCmd = SketchCmd{
 	MinKmerCoverage: 1,
-	MinBaseCoverage: 1.0,
 	BloomFilter:     false,
 	Fasta:           false,
 }

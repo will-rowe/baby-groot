@@ -11,7 +11,7 @@ import (
 	"github.com/will-rowe/gfa"
 )
 
-// Store stores the GROOT graphs...
+// Store stores the GROOT graphs, using the graphID as the lookup key
 type Store map[uint32]*GrootGraph
 
 // SaveGraphAsGFA is a method to convert and save a GrootGraph in GFA format

@@ -106,11 +106,11 @@ func (proc *EMpathFinder) Run() {
 			misc.ErrorCheck(g.RemoveDeadPaths())
 
 			// run the EM
-			err := g.RunEM()
+			err := g.RunEM(proc.info.Haplotype.MinIterations, proc.info.Haplotype.MaxIterations)
 			misc.ErrorCheck(err)
 
 			// process the EM results
-			misc.ErrorCheck(g.ProcessEMpaths(proc.info.Haplotype.Cutoff, proc.info.Sketch.TotalKmers))
+			misc.ErrorCheck(g.ProcessEMpaths(proc.info.Haplotype.Cutoff, proc.info.Haplotype.TotalKmers))
 
 			// send the graph to the next process
 			proc.output <- g
@@ -118,6 +118,62 @@ func (proc *EMpathFinder) Run() {
 	}
 	wg.Wait()
 	close(proc.output)
+}
+
+// HaplotypeParser is a pipeline process to parse the paths produced by the MCMCpathFinder process
+type HaplotypeParser struct {
+	info   *Info
+	input  chan *graph.GrootGraph
+	output []string
+}
+
+// NewHaplotypeParser is the constructor
+func NewHaplotypeParser(info *Info) *HaplotypeParser {
+	return &HaplotypeParser{info: info}
+}
+
+// Connect is the method to connect the HaplotypeParser to the output of a EMpathFinder
+func (proc *HaplotypeParser) Connect(previous *EMpathFinder) {
+	proc.input = previous.output
+}
+
+// CollectOutput is a method to return what paths are found via MCMC
+func (proc *HaplotypeParser) CollectOutput() []string {
+	return proc.output
+}
+
+// Run is the method to run this process, which satisfies the pipeline interface
+func (proc *HaplotypeParser) Run() {
+	meanEMiterations := 0
+	keptGraphs := make(graph.Store)
+	keptPaths := []string{}
+	for g := range proc.input {
+		meanEMiterations += g.EMiterations
+
+		// check graph has some paths left
+		if len(g.Paths) == 0 {
+			continue
+		}
+
+		// remove dead ends
+		misc.ErrorCheck(g.RemoveDeadPaths())
+
+		// print some stuff
+		paths, abundances := g.GetEMpaths()
+		log.Printf("\tgraph %d has %d called alleles after EM", g.GraphID, len(paths))
+		for i, path := range paths {
+			log.Printf("\t- [%v (abundance: %.3f)]", path, abundances[i])
+			keptPaths = append(keptPaths, path)
+		}
+		g.GrootVersion = version.VERSION
+		keptGraphs[g.GraphID] = g
+	}
+	log.Printf("summarising...")
+	log.Printf("\tmean number of EM iterations: %d\n", meanEMiterations/len(keptGraphs))
+	log.Printf("\tnumber of graphs with viable paths: %d\n", len(keptGraphs))
+	log.Printf("\tnumber of called alleles: %d\n", len(keptPaths))
+	proc.info.Store = keptGraphs
+	proc.output = keptPaths
 }
 
 /*
@@ -182,58 +238,3 @@ func (proc *MCMCpathFinder) Run() {
 	close(proc.output)
 }
 */
-
-// HaplotypeParser is a pipeline process to parse the paths produced by the MCMCpathFinder process
-type HaplotypeParser struct {
-	info   *Info
-	input  chan *graph.GrootGraph
-	output []string
-}
-
-// NewHaplotypeParser is the constructor
-func NewHaplotypeParser(info *Info) *HaplotypeParser {
-	return &HaplotypeParser{info: info}
-}
-
-// Connect is the method to connect the HaplotypeParser to the output of a EMpathFinder
-func (proc *HaplotypeParser) Connect(previous *EMpathFinder) {
-	proc.input = previous.output
-}
-
-// CollectOutput is a method to return what paths are found via MCMC
-func (proc *HaplotypeParser) CollectOutput() []string {
-	return proc.output
-}
-
-// Run is the method to run this process, which satisfies the pipeline interface
-func (proc *HaplotypeParser) Run() {
-	meanEMiterations := 0
-	keptGraphs := make(graph.Store)
-	keptPaths := []string{}
-	for g := range proc.input {
-		meanEMiterations += g.EMiterations
-
-		// check graph has some paths left
-		if len(g.Paths) == 0 {
-			continue
-		}
-
-		// remove dead ends
-		misc.ErrorCheck(g.RemoveDeadPaths())
-
-		// print some stuff
-		paths, abundances := g.GetEMpaths()
-		log.Printf("\tgraph %d has %d called alleles after EM", g.GraphID, len(paths))
-		for i, path := range paths {
-			log.Printf("\t- [%v (abundance: %.2f)]", path, abundances[i])
-			keptPaths = append(keptPaths, path)
-		}
-		g.GrootVersion = version.VERSION
-		keptGraphs[g.GraphID] = g
-	}
-	log.Printf("\tmean number of EM iterations: %d\n", meanEMiterations/len(keptGraphs))
-	log.Printf("\tnumber of graphs with viable paths: %d\n", len(keptGraphs))
-	log.Printf("\tnumber of haplotype sequences: %d\n", len(keptPaths))
-	proc.info.Store = keptGraphs
-	proc.output = keptPaths
-}

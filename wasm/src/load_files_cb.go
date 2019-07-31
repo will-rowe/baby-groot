@@ -142,12 +142,11 @@ func (s *GrootWASM) setupInputCheckerCb() {
 		// TODO: have these parameters set by the user
 		s.info.Sketch = pipeline.SketchCmd{
 			MinKmerCoverage: 1,
-			MinBaseCoverage: 0.99,
 			BloomFilter:     false,
 			Fasta:           false,
 		}
 		s.info.Haplotype = pipeline.HaploCmd{
-			Cutoff:        0.05,
+			Cutoff:        0.001,
 			MaxIterations: 10000,
 			MinIterations: 50,
 			HaploDir:      ".",

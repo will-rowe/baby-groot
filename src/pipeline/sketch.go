@@ -324,7 +324,7 @@ func (proc *ReadMapper) Run() {
 	} // all reads have been sent for mapping
 
 	// signal the end of the reads and close the channels
-	theBoss.stopWork()
+	theBoss.stopMinions()
 
 	// check all the reads were sent for mapping
 	if theBoss.readCount != readCount {
@@ -361,7 +361,7 @@ func (proc *ReadMapper) Run() {
 		proc.output <- g
 	}
 	log.Print("processing graphs...")
-	log.Printf("\ttotal number of k-mers projected onto graphs: %.0f\n", proc.info.Sketch.TotalKmers)
+	log.Printf("\ttotal number of k-mers projected onto graphs: %d\n", proc.info.Sketch.TotalKmers)
 }
 
 // GraphPruner is a pipeline process to prune the graphs post mapping
@@ -401,7 +401,7 @@ func (proc *GraphPruner) Run() {
 		go func(graph *graph.GrootGraph) {
 			defer wg.Done()
 			// check for alignments and prune the graph
-			keepGraph := graph.Prune(float64(proc.info.Sketch.MinKmerCoverage), proc.info.Sketch.MinBaseCoverage)
+			keepGraph := graph.Prune(proc.info.Sketch.MinKmerCoverage)
 
 			// check we have some graph
 			if keepGraph != false {
