@@ -32,7 +32,7 @@ func (theBoss *theBoss) launchGraphMinions() {
 	for graphID, graph := range theBoss.info.Store {
 
 		// create the minion
-		minion := newGraphMinion(graphID, theBoss.info.Index.KmerSize, graph)
+		minion := newGraphMinion(graphID, theBoss.info.KmerSize, graph)
 
 		// start the minion
 		minion.start()
@@ -125,7 +125,7 @@ func mapReads(runtimeInfo *Info) (*theBoss, error) {
 	for id := 0; id < runtimeInfo.NumProc; id++ {
 
 		// create a minion
-		minion := newSketchingMinion(id, runtimeInfo, uint(runtimeInfo.Index.KmerSize), uint(runtimeInfo.Index.SketchSize), runtimeInfo.Index.KMVsketch, minionQueue, &boss.wg)
+		minion := newSketchingMinion(id, runtimeInfo, uint(runtimeInfo.KmerSize), uint(runtimeInfo.SketchSize), runtimeInfo.KMVsketch, minionQueue, &boss.wg)
 
 		// start it running
 		minion.start()

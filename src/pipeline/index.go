@@ -91,7 +91,7 @@ func (proc *GraphSketcher) Run() {
 		go func(grootGraph *graph.GrootGraph) {
 
 			// create sketch for each window in the graph
-			for window := range grootGraph.WindowGraph(proc.info.Index.WindowSize, proc.info.Index.KmerSize, proc.info.Index.SketchSize, proc.info.Index.KMVsketch) {
+			for window := range grootGraph.WindowGraph(proc.info.WindowSize, proc.info.KmerSize, proc.info.SketchSize, proc.info.KMVsketch) {
 
 				// send the windows for this graph onto the next process
 				proc.output <- window
@@ -139,11 +139,13 @@ func (proc *SketchIndexer) Connect(previous *GraphSketcher) {
 
 // Run is the method to run this process, which satisfies the pipeline interface
 func (proc *SketchIndexer) Run() {
+
 	// get the index ready
-	index := lshforest.NewLSHforest(proc.info.Index.SketchSize, proc.info.Index.JSthresh)
+	index := lshforest.NewLSHforest(proc.info.SketchSize, proc.info.JSthresh)
 	sketchCount := 0
 	for window := range proc.input {
 		sketchCount++
+
 		// add the sketch to the lshforest index
 		misc.ErrorCheck(index.Add(window))
 	}

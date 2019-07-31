@@ -14,7 +14,7 @@ func TestSketching(t *testing.T) {
 	if err := testParameters.Load("test-data/tmp/groot.gg"); err != nil {
 		t.Fatal(err)
 	}
-	lshf := lshforest.NewLSHforest(testParameters.Index.SketchSize, testParameters.Index.JSthresh)
+	lshf := lshforest.NewLSHforest(testParameters.SketchSize, testParameters.JSthresh)
 	if err := lshf.Load("test-data/tmp/groot.lshf"); err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestSketching(t *testing.T) {
 	}
 	for graphID, g := range testParameters.Store {
 		fileName := fmt.Sprintf("test-data/tmp/groot-graph-%d.gfa", graphID)
-		_, err := g.SaveGraphAsGFA(fileName, int(testParameters.Sketch.TotalKmers))
+		_, err := g.SaveGraphAsGFA(fileName, readStats[3])
 		misc.ErrorCheck(err)
 	}
 }

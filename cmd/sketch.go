@@ -27,7 +27,7 @@ var (
 	fastq           *[]string                                                         // list of FASTQ files to align
 	fasta           *bool                                                             // flag to treat input as fasta sequences
 	bloomFilter     *bool                                                             // flag to use a bloom filter in order to prevent unique k-mers being used during sketching
-	minKmerCoverage *int                                                              // the minimum k-mer coverage per base of a segment
+	minKmerCoverage *float64                                                          // the minimum k-mer coverage per base of a segment
 	graphDir        *string                                                           // directory to save gfa graphs to
 	defaultGraphDir = "./groot-graphs-" + string(time.Now().Format("20060102150405")) // a default graphDir
 )
@@ -50,7 +50,7 @@ func init() {
 	fastq = sketchCmd.Flags().StringSliceP("fastq", "f", []string{}, "FASTQ file(s) to align")
 	fasta = sketchCmd.Flags().Bool("fasta", false, "if set, the input will be treated as fasta sequence(s) (experimental feature)")
 	bloomFilter = sketchCmd.Flags().Bool("bloomFilter", false, "if set, a bloom filter will be used to stop unique k-mers being added to sketches")
-	minKmerCoverage = sketchCmd.Flags().IntP("minKmerCov", "c", 1, "minimum k-mer coverage per segment base")
+	minKmerCoverage = sketchCmd.Flags().Float64P("minKmerCov", "c", 1.0, "minimum k-mer coverage per segment base")
 	graphDir = sketchCmd.PersistentFlags().StringP("graphDir", "g", defaultGraphDir, "directory to save variation graphs to")
 	RootCmd.AddCommand(sketchCmd)
 }
@@ -100,14 +100,14 @@ func runSketch() {
 	if info.Version != version.VERSION {
 		misc.ErrorCheck(fmt.Errorf("the groot index was created with a different version of groot (you are currently using version %v)", version.VERSION))
 	}
-	log.Printf("\tk-mer size: %d\n", info.Index.KmerSize)
-	log.Printf("\tsketch size: %d\n", info.Index.SketchSize)
-	log.Printf("\tJaccard similarity theshold: %0.2f\n", info.Index.JSthresh)
-	log.Printf("\twindow size used in indexing: %d\n", info.Index.WindowSize)
+	log.Printf("\tk-mer size: %d\n", info.KmerSize)
+	log.Printf("\tsketch size: %d\n", info.SketchSize)
+	log.Printf("\tJaccard similarity theshold: %0.2f\n", info.JSthresh)
+	log.Printf("\twindow size used in indexing: %d\n", info.WindowSize)
 	log.Print("loading the graphs...")
 	log.Printf("\tnumber of variation graphs: %d\n", len(info.Store))
 	log.Print("loading the LSH Forest...")
-	lshf := lshforest.NewLSHforest(info.Index.SketchSize, info.Index.JSthresh)
+	lshf := lshforest.NewLSHforest(info.SketchSize, info.JSthresh)
 	misc.ErrorCheck(lshf.Load(*indexDir + "/groot.lshf"))
 	info.AttachDB(lshf)
 	numHF, numBucks := info.GetDBinfo()
@@ -125,7 +125,7 @@ func runSketch() {
 	info.Sketch = pipeline.SketchCmd{
 		Fasta:           *fasta,
 		BloomFilter:     *bloomFilter,
-		MinKmerCoverage: float64(*minKmerCoverage),
+		MinKmerCoverage: *minKmerCoverage,
 	}
 
 	// create the pipeline
@@ -156,9 +156,10 @@ func runSketch() {
 	// once the sketching pipeline is finished, process the graph store and write the graphs to disk
 	if len(info.Store) != 0 {
 		log.Printf("saving graphs...\n")
+		stats := readMapper.CollectReadStats()
 		for graphID, g := range info.Store {
 			fileName := fmt.Sprintf("%v/groot-graph-%d.gfa", *graphDir, graphID)
-			_, err := g.SaveGraphAsGFA(fileName, int(info.Sketch.TotalKmers))
+			_, err := g.SaveGraphAsGFA(fileName, stats[3])
 			misc.ErrorCheck(err)
 		}
 	}

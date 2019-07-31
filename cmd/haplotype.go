@@ -85,10 +85,10 @@ func runHaplotype() {
 	if info.Version != version.VERSION {
 		misc.ErrorCheck(fmt.Errorf("the groot index was created with a different version of groot (you are currently using version %v)", version.VERSION))
 	}
-	log.Printf("\tk-mer size: %d\n", info.Index.KmerSize)
-	log.Printf("\tsketch size: %d\n", info.Index.SketchSize)
-	log.Printf("\tJaccard similarity theshold: %0.2f\n", info.Index.JSthresh)
-	log.Printf("\twindow size used in indexing: %d\n", info.Index.WindowSize)
+	log.Printf("\tk-mer size: %d\n", info.KmerSize)
+	log.Printf("\tsketch size: %d\n", info.SketchSize)
+	log.Printf("\tJaccard similarity theshold: %0.2f\n", info.JSthresh)
+	log.Printf("\twindow size used in indexing: %d\n", info.WindowSize)
 	log.Print("loading the graphs...")
 	log.Printf("\tnumber of weighted GFAs for haplotyping: %d", len(graphList))
 

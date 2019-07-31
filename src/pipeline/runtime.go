@@ -4,31 +4,28 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/segmentio/objconv/msgpack"
+	"github.com/vmihailenco/msgpack"
 	"github.com/will-rowe/baby-groot/src/graph"
 	"github.com/will-rowe/baby-groot/src/lshforest"
 )
 
 // Info stores the runtime information
 type Info struct {
-	NumProc   int
-	Version   string
-	Profiling bool
-	Index     IndexCmd
-	Sketch    SketchCmd
-	Haplotype HaploCmd
-	Store     graph.Store
-	db        lshforest.IndexWrapper
-}
-
-// IndexCmd stores the runtime info for the index command
-type IndexCmd struct {
+	Version    string
+	NumProc    int
+	Profiling  bool
 	KmerSize   int
 	SketchSize int
 	KMVsketch  bool
 	JSthresh   float64
 	WindowSize int
 	IndexDir   string
+	Store      graph.Store
+
+	// the following fields are not written to disk
+	Sketch    SketchCmd
+	Haplotype HaploCmd
+	db        lshforest.IndexWrapper
 }
 
 // SketchCmd stores the runtime info for the sketch command
@@ -36,7 +33,6 @@ type SketchCmd struct {
 	Fasta           bool
 	BloomFilter     bool
 	MinKmerCoverage float64
-	TotalKmers      uint64
 }
 
 // HaploCmd stores the runtime info for the haplotype command

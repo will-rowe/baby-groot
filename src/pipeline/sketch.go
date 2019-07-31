@@ -18,7 +18,6 @@ import (
 	"github.com/will-rowe/baby-groot/src/graph"
 	"github.com/will-rowe/baby-groot/src/misc"
 	"github.com/will-rowe/baby-groot/src/seqio"
-	"github.com/will-rowe/hulk/src/helpers"
 )
 
 // DataStreamer is a pipeline process that streams data from STDIN/file
@@ -274,12 +273,12 @@ type ReadMapper struct {
 	info      *Info
 	input     chan []byte
 	output    chan *graph.GrootGraph
-	readStats [3]int // corresponds to num. reads, total num. mapped, num. multimapped
+	readStats [4]int // corresponds to num. reads, total num. mapped, num. multimapped, total k-mers
 }
 
 // NewDbQuerier is the constructor
 func NewDbQuerier(info *Info) *ReadMapper {
-	return &ReadMapper{info: info, output: make(chan *graph.GrootGraph), readStats: [3]int{0, 0, 0}}
+	return &ReadMapper{info: info, output: make(chan *graph.GrootGraph), readStats: [4]int{0, 0, 0, 0}}
 }
 
 // Connect is the method to join the input of this process with the output of FastqChecker
@@ -288,7 +287,7 @@ func (proc *ReadMapper) Connect(previous *FastqChecker) {
 }
 
 // CollectReadStats is a method to return the number of reads processed, how many mapped and the number of multimaps
-func (proc *ReadMapper) CollectReadStats() [3]int {
+func (proc *ReadMapper) CollectReadStats() [4]int {
 	return proc.readStats
 }
 
@@ -304,7 +303,7 @@ func (proc *ReadMapper) Run() {
 
 	// set up the boss and minion pool, ready to find minimizers
 	theBoss, err := mapReads(proc.info)
-	helpers.ErrorCheck(err)
+	misc.ErrorCheck(err)
 
 	// start processing sequences
 	readCount := 0
@@ -357,11 +356,11 @@ func (proc *ReadMapper) Run() {
 
 	// send on the graphs now that the mapping is done
 	for _, g := range proc.info.Store {
-		proc.info.Sketch.TotalKmers += g.KmerTotal
+		proc.readStats[3] += int(g.KmerTotal)
 		proc.output <- g
 	}
 	log.Print("processing graphs...")
-	log.Printf("\ttotal number of k-mers projected onto graphs: %d\n", proc.info.Sketch.TotalKmers)
+	log.Printf("\ttotal number of k-mers projected onto graphs: %d\n", proc.readStats[3])
 }
 
 // GraphPruner is a pipeline process to prune the graphs post mapping

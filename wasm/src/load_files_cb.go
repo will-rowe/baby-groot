@@ -126,7 +126,7 @@ func (s *GrootWASM) setupInputCheckerCb() {
 			fmt.Println(err)
 			return nil
 		}
-		lshf := lshforest.NewLSHforest(s.info.Index.SketchSize, s.info.Index.JSthresh)
+		lshf := lshforest.NewLSHforest(s.info.SketchSize, s.info.JSthresh)
 		if err := lshf.LoadFromBytes(s.inBuf3); err != nil {
 			s.statusUpdate("failed to load GROOT index!")
 			fmt.Println(err)
@@ -141,7 +141,7 @@ func (s *GrootWASM) setupInputCheckerCb() {
 		/////////////////////////////////////////////////
 		// TODO: have these parameters set by the user
 		s.info.Sketch = pipeline.SketchCmd{
-			MinKmerCoverage: 1,
+			MinKmerCoverage: 1.0,
 			BloomFilter:     false,
 			Fasta:           false,
 		}

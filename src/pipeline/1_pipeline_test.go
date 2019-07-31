@@ -29,34 +29,26 @@ var gfaList = []string{"test-data/tmp/groot-graph-0.gfa"}
 /*
 TEST PARAMETERS
 */
-var indexCmd = IndexCmd{
+var testParameters = &Info{
+	NumProc:    1,
+	Version:    version.VERSION,
 	KmerSize:   31,
 	SketchSize: 42,
 	KMVsketch:  false,
 	JSthresh:   0.99,
 	WindowSize: 100,
 	IndexDir:   "test-data/tmp",
-}
-
-var sketchCmd = SketchCmd{
-	MinKmerCoverage: 1,
-	BloomFilter:     false,
-	Fasta:           false,
-}
-
-var haploCmd = HaploCmd{
-	Cutoff:        0.05,
-	MaxIterations: 10000,
-	MinIterations: 50,
-	HaploDir:      "test-data/tmp",
-}
-
-var testParameters = &Info{
-	NumProc:   1,
-	Version:   version.VERSION,
-	Index:     indexCmd,
-	Sketch:    sketchCmd,
-	Haplotype: haploCmd,
+	Sketch: SketchCmd{
+		MinKmerCoverage: 1,
+		BloomFilter:     false,
+		Fasta:           false,
+	},
+	Haplotype: HaploCmd{
+		Cutoff:        0.05,
+		MaxIterations: 10000,
+		MinIterations: 50,
+		HaploDir:      "test-data/tmp",
+	},
 }
 
 func setupTmpDir() error {
