@@ -57,6 +57,7 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/russross/blackfriday v1.5.2/go.mod h1:JO/DiYxRf+HjHt06OyowR9PTA263kcR/rfWxYHBV53g=
 github.com/segmentio/conf v1.1.0/go.mod h1:Y3B9O/PqqWqjyxyWWseyj/quPEtMu1zDp/kVbSWWaB0=
 github.com/segmentio/go-snakecase v1.1.0/go.mod h1:jk1miR5MS7Na32PZUykG89Arm+1BUSYhuGR6b7+hJto=
+github.com/segmentio/objconv v1.0.1 h1:QjfLzwriJj40JibCV3MGSEiAoXixbp4ybhwfTB8RXOM=
 github.com/segmentio/objconv v1.0.1/go.mod h1:auayaH5k3137Cl4SoXTgrzQcuQDmvuVtZgS0fb1Ahys=
 github.com/spf13/afero v1.1.2/go.mod h1:j4pytiNVoe2o6bmDsKpLACNPDBIoEAkihy7loJ1B0CQ=
 github.com/spf13/cast v1.3.0/go.mod h1:Qx5cxh0v+4UWYiBimWS+eyWzqEqokIECu5etghLkUJE=
@@ -80,11 +81,13 @@ github.com/valyala/fastrand v0.0.0-20170531153657-19dd0f0bf014/go.mod h1:HWqCzkr
 github.com/valyala/fastrand v1.0.0/go.mod h1:HWqCzkrkg6QXT8V2EXWvXCoow7vLwOFN002oeRzjapQ=
 github.com/vmihailenco/msgpack v4.0.4+incompatible h1:dSLoQfGFAo3F6OoNhwUmLwVgaUXK79GlxNBwueZn0xI=
 github.com/vmihailenco/msgpack v4.0.4+incompatible/go.mod h1:fy3FlTQTDXWkZ7Bh6AcGMlsjHatGryHQYUTf1ShIgkk=
+github.com/will-rowe/baby-groot v0.0.0-20190725110810-6dcc555c7c76 h1:uRV/Ir857uFbETUAvbEFHn5W3sOacBOeg6u5ru3OwWM=
 github.com/will-rowe/baby-groot v0.0.0-20190725110810-6dcc555c7c76/go.mod h1:/5BXPWQlx+tYRZJ6+HJAfqY9hakvxzUIa8ICkavjkm0=
 github.com/will-rowe/baby-groot/wasm v0.0.0-20190731095543-4bb4174e33ff h1:BQSoNO1bI9pnWyDkBDmPDA834lj7jukxc11HgknEv5M=
 github.com/will-rowe/baby-groot/wasm v0.0.0-20190731095543-4bb4174e33ff/go.mod h1:vOg5wWU8b+68LR+/QPHxigWf+bTm8U1HLlBMt0LOseY=
 github.com/will-rowe/gfa v0.0.0-20190502084819-05c93955478b h1:FPqzpx98kL1aOLiZ5ZjwfI+b/nh60qoSKr+RDhYctVA=
 github.com/will-rowe/gfa v0.0.0-20190502084819-05c93955478b/go.mod h1:jSVX6uZtpiVv7aToIC1BEtuh2is2B4/GCkFvprNHgkY=
+github.com/will-rowe/hulk v0.0.0-20190722063731-4a6ce1a8d701 h1:7MWaQ2Pt29xzkVawww/V31kVEdP+s8mJFk0HGRZmMmY=
 github.com/will-rowe/hulk v0.0.0-20190722063731-4a6ce1a8d701/go.mod h1:rN+Q4W6TQjnfmcnfBkWdPV21T/RX7RpvBXSAr351P8U=
 github.com/will-rowe/ntHash v0.0.0-20190624153018-541592fc7931 h1:QCE806NstAGzZoHhyq+YZNOexOiRj9uNOGf/007yybg=
 github.com/will-rowe/ntHash v0.0.0-20190624153018-541592fc7931/go.mod h1:iT1gPVtz/gRasyESdx5RSSLGFoQkzxqP9c6uVszzobU=

@@ -1,10 +1,12 @@
 package pipeline
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"io/ioutil"
+	"os"
 
-	"github.com/vmihailenco/msgpack"
 	"github.com/will-rowe/baby-groot/src/graph"
 	"github.com/will-rowe/baby-groot/src/lshforest"
 )
@@ -61,11 +63,13 @@ func (Info *Info) SaveDB(filePath string) error {
 
 // Dump is a method to dump the pipeline info to file
 func (Info *Info) Dump(path string) error {
-	b, err := msgpack.Marshal(Info)
+	fh, err := os.Create(path)
+	defer fh.Close()
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, b, 0644)
+	encoder := gob.NewEncoder(fh)
+	return encoder.Encode(Info)
 }
 
 // Load is a method to load Info from file
@@ -82,5 +86,7 @@ func (Info *Info) LoadFromBytes(data []byte) error {
 	if len(data) == 0 {
 		return fmt.Errorf("groot graph store appears empty")
 	}
-	return msgpack.Unmarshal(data, Info)
+	buf := bytes.NewBuffer(data)
+	decoder := gob.NewDecoder(buf)
+	return decoder.Decode(Info)
 }

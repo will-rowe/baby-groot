@@ -28,10 +28,12 @@ func (GrootGraph *GrootGraph) SaveGraphAsGFA(fileName string, totalKmers int) (i
 	newGFA.AddComment([]byte(msg))
 	// transfer all the GrootGraphNode content to the GFA instance
 	for _, node := range GrootGraph.SortedNodes {
-		// BABY GROOT - some nodes will be nil after pruning, ignore these
-		if node == nil {
+
+		// some nodes will be marked for skipping after pruning, ignore these
+		if node.Marked {
 			continue
 		}
+
 		// record if this graph has had reads map
 		if (graphUsed == false) && (node.KmerFreq > 0) {
 			graphUsed = true
@@ -72,8 +74,9 @@ func (GrootGraph *GrootGraph) SaveGraphAsGFA(fileName string, totalKmers int) (i
 		}
 		segments, overlaps := [][]byte{}, [][]byte{}
 		for _, node := range GrootGraph.SortedNodes {
-			// BABY GROOT - some nodes will be nil after pruning, ignore these
-			if node == nil {
+
+			// some nodes will be marked for skipping after pruning, ignore these
+			if node.Marked {
 				continue
 			}
 			for _, id := range node.PathIDs {

@@ -8,8 +8,8 @@ import (
 	"syscall/js"
 	"unsafe"
 
-	"github.com/will-rowe/baby-groot/src/lshforest"
-	"github.com/will-rowe/baby-groot/src/pipeline"
+	"baby-groot/src/lshforest"
+	"baby-groot/src/pipeline"
 )
 
 // closeFASTQchan
@@ -79,7 +79,6 @@ func (s *GrootWASM) setupInitMem3Cb() {
 	})
 	return
 }
-
 
 // setupFastqFiles is the callback to get a list of FASTQs for GROOT
 func (s *GrootWASM) setupFastqFiles() {

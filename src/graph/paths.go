@@ -35,7 +35,9 @@ func (GrootGraph *GrootGraph) RunEM(minIterations, numIterations int) error {
 	ecMap := make(map[uint64][]uint32)
 	counts := make(map[uint64]float64)
 	for _, node := range GrootGraph.SortedNodes {
-		if node == nil {
+
+		// some nodes will be marked for skipping after pruning, ignore these
+		if node.Marked {
 			continue
 		}
 		if _, ok := ecMap[node.SegmentID]; ok {

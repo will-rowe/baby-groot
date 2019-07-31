@@ -5,7 +5,7 @@ package bg
 import (
 	"syscall/js"
 
-	"github.com/will-rowe/baby-groot/src/pipeline"
+	"baby-groot/src/pipeline"
 )
 
 // GrootWASM
@@ -37,7 +37,7 @@ type GrootWASM struct {
 // New returns a new instance of GrootWASM
 func New() *GrootWASM {
 	return &GrootWASM{
-		info: new(pipeline.Info),
+		info:    new(pipeline.Info),
 		console: js.Global().Get("console"),
 		fastq:   make(chan []byte, pipeline.BUFFERSIZE),
 		done:    make(chan struct{}),

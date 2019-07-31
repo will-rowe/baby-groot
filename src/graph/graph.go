@@ -404,7 +404,7 @@ func (GrootGraph *GrootGraph) Prune(minKmerCoverage float64) bool {
 		if _, marked := removeNode[node.SegmentID]; marked {
 
 			// TODO: I've set the node to nil in the sorted node array - in order to keep the NodeLookup in order. But this isn't pretty and now requires you to check for nil when using the SortedNodes array
-			GrootGraph.SortedNodes[i] = nil
+			GrootGraph.SortedNodes[i].Marked = true
 			delete(GrootGraph.NodeLookup, node.SegmentID)
 		}
 
@@ -460,8 +460,9 @@ func (GrootGraph *GrootGraph) GetStartNodes() ([]uint64, error) {
 // RemoveDeadPaths is a method to remove pathIDs from nodes if the path is no longer present in the graph
 func (GrootGraph *GrootGraph) RemoveDeadPaths() error {
 	for _, node := range GrootGraph.SortedNodes {
-		// if the graph has been pruned, some nodes will have been set to nil
-		if node == nil {
+
+		// some nodes will be marked for skipping after pruning, ignore these
+		if node.Marked {
 			continue
 		}
 		updatedPathIDs := []uint32{}
@@ -493,8 +494,8 @@ func (GrootGraph *GrootGraph) GetPaths() error {
 		segIDs := []uint64{}
 		segSeqs := [][]byte{}
 		for _, node := range GrootGraph.SortedNodes {
-			// if the graph has been pruned, some nodes will have been set to nil
-			if node == nil {
+			// some nodes will be marked for skipping after pruning, ignore these
+			if node.Marked {
 				continue
 			}
 			for _, id := range node.PathIDs {

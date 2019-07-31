@@ -17,6 +17,7 @@ type GrootGraphNode struct {
 	OutEdges      Nodes
 	PathIDs       []uint32 // PathIDs are the lookup IDs to the linear reference sequences that use this segment (value corresponds to key in GrootGraph.Paths)
 	KmerFreq      float64
+	Marked        bool // TODO: tmp idea to mark nodes during pruning, rather than deleting
 }
 
 // IncrementKmerFreq is a method to increment a node's k-mer count
