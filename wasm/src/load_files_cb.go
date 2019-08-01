@@ -55,7 +55,7 @@ func (s *GrootWASM) setupInitMem2Cb() {
 		hdr := (*reflect.SliceHeader)(unsafe.Pointer(&s.inBuf2))
 		ptr := uintptr(unsafe.Pointer(hdr.Data))
 		s.console.Call("log", "setting web assembly linear memory for gaphs")
-		js.Global().Call("gotMem", ptr)
+		js.Global().Call("gotGraphMem", ptr)
 		return nil
 	})
 	return
@@ -74,7 +74,7 @@ func (s *GrootWASM) setupInitMem3Cb() {
 		hdr := (*reflect.SliceHeader)(unsafe.Pointer(&s.inBuf3))
 		ptr := uintptr(unsafe.Pointer(hdr.Data))
 		s.console.Call("log", "setting web assembly linear memory for lsh forest")
-		js.Global().Call("gotMem", ptr)
+		js.Global().Call("gotLshfMem", ptr)
 		return nil
 	})
 	return

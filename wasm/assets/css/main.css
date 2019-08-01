@@ -159,16 +159,13 @@ a:hover {
 
 /* Overlay */
 .overlay {
-	height: 100%;
-	width: 100%;
 	height: 100vh;
-	width: 100vw;
+	width: auto;
 	margin: 0;
 	opacity: 0;
-	background-color: #000;
 	background-size: cover;
 	background-position: center;
-	background-image: url(images/bg.jpg);
+	background-image: url(../images/bg.jpg);
 	animation: overlay 1.5s 1.5s forwards;
 	-moz-animation: overlay 1.5s 1.5s forwards;
 	-webkit-animation: overlay 1.5s 1.5s forwards;
@@ -176,9 +173,9 @@ a:hover {
 }
 
 .overlay object {
-	width: 100%;
+    height: 100vh;
 	width: 100vw;
-	background: rgba(0,0,0,0.6);
+    background: rgba(0,0,0,0.6);
 }
 
 @keyframes overlay {
@@ -597,63 +594,7 @@ a:hover {
 				font-size: 13pt;
 			}
 
-		/* BG */
-
-			@-moz-keyframes bg {
-				0% {
-					-moz-transform: translate3d(0,0,0);
-					-webkit-transform: translate3d(0,0,0);
-					-ms-transform: translate3d(0,0,0);
-					transform: translate3d(0,0,0);
-				}
-
-				100% {
-					-moz-transform: translate3d(-1500px,0,0);
-					-webkit-transform: translate3d(-1500px,0,0);
-					-ms-transform: translate3d(-1500px,0,0);
-					transform: translate3d(-1500px,0,0);
-				}
-
-	}
-
-	@-webkit-keyframes bg {
-		0% {
-			background-position: 0% 50%
-		}
-		50% {
-			background-position: 100% 50%
-		}
-		100% {
-			background-position: 0% 50%
-		}
-	}
-	
-	@-moz-keyframes bg {
-		0% {
-			background-position: 0% 50%
-		}
-		50% {
-			background-position: 100% 50%
-		}
-		100% {
-			background-position: 0% 50%
-		}
-	}
-	
-	@keyframes bg {
-		0% {
-			background-position: 0% 50%
-		}
-		50% {
-			background-position: 100% 50%
-		}
-		100% {
-			background-position: 0% 50%
-		}
-	}
-
 /* Normal */
-
 	@media screen and (max-width: 1280px) {
 
 		/* Basic */
@@ -662,9 +603,7 @@ a:hover {
 				font-size: 12pt;
 			}
 	}
-
 }
-
 
 /* Mobile */
 @media screen and (max-width: 736px) {

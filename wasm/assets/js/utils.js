@@ -9,6 +9,12 @@ function $id(id) {
 function gotMem(pointer) {
     memoryBytes.set(bytes, pointer);
 }
+function gotGraphMem(pointer) {
+    memoryBytes.set(graphBytes, pointer);
+}
+function gotLshfMem(pointer) {
+    memoryBytes.set(lshfBytes, pointer);
+}
 
 // getGraphs gets the groot graphs ready for loading
 function getGraphs(graphURL) {

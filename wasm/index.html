@@ -12,7 +12,9 @@
   <div id="wrapper"></div>
   <div id="spinner"></div>
   <div class="overlay">
-      <object id="honeycomb" type="image/svg+xml" data="assets/css/images/overlay.svg"><img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="honeycomb"></object>
+      <object id="honeycomb" type="image/svg+xml" data="assets/images/overlay.svg">
+        <img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="honeycomb">
+      </object>
   </div>
 
   <div id="main">
@@ -21,7 +23,7 @@
     <div class="header" id="header">
 
       <!-- Logo -->
-      <object id="logo-animated" type="image/svg+xml" data="assets/css/images/baby-groot.svg">
+      <object id="logo-animated" type="image/svg+xml" data="assets/images/baby-groot.svg">
         <img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="logo">
       </object>
 
@@ -147,13 +149,12 @@
       } else {
         statusUpdate('status', 'please get a more recent browser!');
       }
+let graphBytes, lshfBytes;
 
       // load the default index
       getGraphs("assets/groot-files/groot.gg");
       getLSHforest("assets/groot-files/groot.lshf");
 
-
-      
       // turn the spinner off
       document.getElementById("spinner").setAttribute('hidden', '');
 

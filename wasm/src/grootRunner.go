@@ -71,6 +71,7 @@ func (s *GrootWASM) setupGrootCb() {
 
 			// print some updates
 			if readStats[1] == 0 {
+				fmt.Println("no reads mapped :(")
 				js.Global().Call("stopRecord")
 				js.Global().Call("stopLogo")
 				s.iconUpdate("startIcon")
