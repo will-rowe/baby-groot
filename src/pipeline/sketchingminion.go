@@ -20,8 +20,8 @@ type sketchingMinion struct {
 	readCount        int
 	mappedCount      int
 	multimappedCount int
-	wg               *sync.WaitGroup
 	mappingMap       map[string]float64
+	wg 				*sync.WaitGroup
 }
 
 // newSketchingMinion is the constructor function
@@ -38,8 +38,8 @@ func newSketchingMinion(id int, runtimeInfo *Info, kmerSize, sketchSize uint, km
 		readCount:        0,
 		mappedCount:      0,
 		multimappedCount: 0,
-		wg:               wg,
 		mappingMap:       make(map[string]float64),
+		wg: wg,
 	}
 }
 

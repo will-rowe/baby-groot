@@ -2,23 +2,25 @@ package pipeline
 
 import (
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/will-rowe/baby-groot/src/lshforest"
+	"github.com/will-rowe/baby-groot/src/misc"
 )
 
 // theBoss is used to orchestrate the minions
 type theBoss struct {
 	info            *Info       // the runtime info for the pipeline
-	inputReads      chan []byte // the boss uses this channel to receive data from the main sketching pipeline
-	finishSketching chan bool   // the boss uses this channel to stop the sketching minions
+	reads      chan []byte // the boss uses this channel to receive data from the main sketching pipeline
+	receivedReadCount int
+	wg sync.WaitGroup
 
 	// the following fields are used by the sketching minions
 	sketchingMinionRegister []*sketchingMinion // a slice of all the sketching minions controlled by this boss
 	readCount               int                // the total number of reads the sketching minions received
 	mappedCount             int                // the total number of reads that were successful mapped to at least one graph
 	multimappedCount        int                // the total number of reads that had multiple mappings
-	wg                      sync.WaitGroup     // records the number of reads currently being mapped by the sketching minions
 
 	// the following fields are used by the graph minions
 	graphMinionRegister map[uint32]*graphMinion // used to keep a record of the graph minions
@@ -44,15 +46,6 @@ func (theBoss *theBoss) launchGraphMinions() {
 
 // stopMinions is a method to initiate a controlled shut down of the boss and minions
 func (theBoss *theBoss) stopMinions() {
-
-	// wait until all the reads have been processed
-	theBoss.wg.Wait()
-
-	// close the channel sending sequences to the minions
-	close(theBoss.inputReads)
-
-	// wait for work to finish and stop the Boss's go routine
-	theBoss.finishSketching <- true
 
 	// send the finish signal to the sketching minions
 	for _, minion := range theBoss.sketchingMinionRegister {
@@ -100,16 +93,21 @@ func (theBoss *theBoss) stopMinions() {
 		minion.finish()
 	}
 
+	// check read counts TODO: this shouldn't be necessary
+	if theBoss.receivedReadCount != theBoss.readCount {
+		fmt.Println(theBoss.receivedReadCount, theBoss.readCount)
+		panic("boss didn't process all the reads")
+	}
 }
 
 // mapReads is a function to start off the minions to map reads, the minions to augement graphs, and to return their boss
-func mapReads(runtimeInfo *Info) (*theBoss, error) {
+func mapReads(runtimeInfo *Info, inputChan chan []byte) (*theBoss, error) {
 
 	// create a boss to orchestrate the minions
 	boss := &theBoss{
 		info:            runtimeInfo,
-		inputReads:      make(chan []byte, BUFFERSIZE),
-		finishSketching: make(chan bool),
+		reads:      	 inputChan,
+		receivedReadCount: 0,
 		readCount:       0,
 		mappedCount:     0,
 	}
@@ -127,43 +125,40 @@ func mapReads(runtimeInfo *Info) (*theBoss, error) {
 		// create a minion
 		minion := newSketchingMinion(id, runtimeInfo, uint(runtimeInfo.KmerSize), uint(runtimeInfo.SketchSize), runtimeInfo.KMVsketch, minionQueue, &boss.wg)
 
-		// start it running
-		minion.start()
-
 		// add it to the boss's register of running minions
 		boss.sketchingMinionRegister[id] = minion
+
+		// start it running
+		minion.start()
 	}
 	if len(boss.sketchingMinionRegister) == 0 {
-		return nil, fmt.Errorf("the boss didn't make any sketching minions - check number of processors available")
+		return nil, fmt.Errorf("the boss didn't make any sketching minions - check number of available processors")
 	}
 
-	// start processing the sequences
-	go func() {
-		for {
-			select {
+	// start mapping reads
+	for read := range boss.reads {
 
-			// if there's a sequence to be processed, send it to a minion
-			case read := <-boss.inputReads:
+		// wait for a minion to be available
+		freeMinion := <-minionQueue
 
-				//  TODO: add some checking at this stage, before sending the read on
-				if len(read) == 0 {
-					continue
-				}
-				boss.wg.Add(1)
+		// put the read in the minion's input channel
+		freeMinion <- read
 
-				// wait for a minion to be available
-				freeMinion := <-minionQueue
+		// tell the boss a read is being processed
+		boss.wg.Add(1)
 
-				// put the read in the minion's input channel
-				freeMinion <- read
-
-			// stop the minions working when the boss receives word
-			case <-boss.finishSketching:
-
-				break
+		// print current memory usage every 100,000 reads
+		boss.receivedReadCount++
+		if boss.info.Profiling {
+			if (boss.receivedReadCount % 100000) == 0 {
+				log.Printf("\tprocessed %d reads -> current memory usage %v", boss.receivedReadCount, misc.PrintMemUsage())
 			}
 		}
-	}()
+	}
+
+	// close the channels
+	boss.wg.Wait()
+	boss.stopMinions()
 
 	return boss, nil
 }

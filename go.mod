@@ -7,6 +7,7 @@ require (
 	github.com/biogo/biogo v1.0.1
 	github.com/golang/protobuf v1.3.2
 	github.com/mholt/archiver v3.1.1+incompatible
+	github.com/pierrec/lz4 v2.2.6+incompatible // indirect
 	github.com/pkg/profile v1.3.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.3

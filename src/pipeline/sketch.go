@@ -295,43 +295,12 @@ func (proc *ReadMapper) CollectReadStats() [4]int {
 func (proc *ReadMapper) Run() {
 	defer close(proc.output)
 
-	// TODO: if requested, set up a bloom filter to prevent unique k-mers being included in sketches
-	//var bf *minhash.BloomFilter
-	//if proc.info.Sketch.BloomFilter {
-	//	bf = minhash.NewDefaultBloomFilter()
-	//}
-
-	// set up the boss and minion pool, ready to find minimizers
-	theBoss, err := mapReads(proc.info)
+	// set up the boss and minion pool and start mapping
+	theBoss, err := mapReads(proc.info, proc.input)
 	misc.ErrorCheck(err)
 
-	// start processing sequences
-	readCount := 0
-	for read := range proc.input {
-
-		// add the read to the mapping queue
-		readCount++
-		theBoss.inputReads <- read
-
-		// print current memory usage every 100,000 reads
-		if proc.info.Profiling {
-			if (readCount % 100000) == 0 {
-				log.Printf("\tprocessed %d reads -> current memory usage %v", readCount, misc.PrintMemUsage())
-			}
-		}
-
-	} // all reads have been sent for mapping
-
-	// signal the end of the reads and close the channels
-	theBoss.stopMinions()
-
-	// check all the reads were sent for mapping
-	if theBoss.readCount != readCount {
-		misc.ErrorCheck(fmt.Errorf("read leak --> %d reads were accidentally dropped from the sketching pipeline", readCount-theBoss.readCount))
-	}
-
 	// log some stuff
-	proc.readStats[0] = readCount
+	proc.readStats[0] = theBoss.readCount
 	proc.readStats[1] = theBoss.mappedCount
 	proc.readStats[2] = theBoss.multimappedCount
 
