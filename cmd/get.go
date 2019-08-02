@@ -170,5 +170,5 @@ func runGet() {
 		os.Exit(1)
 	}
 	fmt.Printf("database saved to: %v\n", dbSave)
-	fmt.Printf("now run `groot index -i %v` or `groot index --help` for full options\n", dbSave)
+	fmt.Printf("now run `groot index -m %v -i newIndex` or `groot index --help` for full options\n", dbSave)
 }

@@ -58,6 +58,12 @@ func init() {
 // runAlign is the main function for the sketch sub-command
 func runSketch() {
 
+	// check index flag is set (global flag but don't require it for all sub commands)
+	if *indexDir == "" {
+		fmt.Println("please specify a directory with the index files (--indexDir)")
+		os.Exit(1)
+	}
+
 	// set up profiling
 	if *profiling {
 		defer profile.Start(profile.MemProfile, profile.ProfilePath("./")).Stop()

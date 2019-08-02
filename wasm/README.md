@@ -17,7 +17,7 @@ Browser support is restricted to Chrome, Firefox and Opera for now.
   * they just print to the console, no notifications for user
   * in some cases, the application doesn't shut down
 * doesn't handle GZIPed input yet
-* sometimes it doesn't progress past the read mapping - not sure what causes this and no errors detected (all test reads map and graphs are updated)
+
 
 ## Running locally
 
@@ -27,4 +27,13 @@ To build the WASM binary and run the development server:
 make
 
 go run dev-server.go
+```
+
+## Commands used to build index
+
+```
+cd assets/groot-files
+
+go run ../../../main.go index -m . -i . -k 31 -s 100 -j 1.0 -w 100
+
 ```

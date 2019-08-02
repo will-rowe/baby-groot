@@ -32,6 +32,8 @@ github.com/nwaples/rardecode v1.0.0/go.mod h1:5DzqNKiOdpKKBH87u8VlvAnPZMXcGRhxWk
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
 github.com/pierrec/lz4 v2.2.5+incompatible h1:xOYu2+sKj87pJz7V+I7260354UlcRyAZUGhMCToTzVw=
 github.com/pierrec/lz4 v2.2.5+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
+github.com/pierrec/lz4 v2.2.6+incompatible h1:6aCX4/YZ9v8q69hTyiR7dNLnTA3fgtKHVVW5BCd5Znw=
+github.com/pierrec/lz4 v2.2.6+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
 github.com/pkg/profile v1.3.0 h1:OQIvuDgm00gWVWGTf4m4mCt6W1/0YqU7Ntg0mySWgaI=
 github.com/pkg/profile v1.3.0/go.mod h1:hJw3o1OdXxsrSjjVksARp5W95eeEaEfptyVZyv6JUPA=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
@@ -50,8 +52,10 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/ulikunitz/xz v0.5.6 h1:jGHAfXawEGZQ3blwU5wnWKQJvAraT7Ftq9EXjnXYgt8=
 github.com/ulikunitz/xz v0.5.6/go.mod h1:2bypXElzHzzJZwzH67Y6wb67pO62Rzfn7BSiF4ABRW8=
-github.com/will-rowe/baby-groot v0.0.0-20190731142610-fafe9153760c h1:y7jwxibIjG1+e6WwCyw8p9bDfdwQmlQDgWJKsX9+TxE=
 github.com/will-rowe/baby-groot v0.0.0-20190731142610-fafe9153760c/go.mod h1:dEgpA/w3eitVMBIcPRACG2iulKAZ+pXrrB5SHQ48MHw=
+github.com/will-rowe/baby-groot v0.0.0-20190801202304-3d3f19c9dad4 h1:+oFWR0cxwUY7dTYnj3HR0AnPf2ae4WDLddUeTQb7Wd0=
+github.com/will-rowe/baby-groot v0.0.0-20190801202304-3d3f19c9dad4/go.mod h1:iqtvH9z15mL3qU025ZStFtGfuaKGznkpaWJfZOCXCCc=
+github.com/will-rowe/baby-groot/wasm v0.0.0-20190731154658-ddb6e37443f9/go.mod h1:QczCqIWgdhWdDHBXGJ2ZhVWyfNOKXQj//Y56dSLhfxg=
 github.com/will-rowe/gfa v0.0.0-20190502084819-05c93955478b h1:FPqzpx98kL1aOLiZ5ZjwfI+b/nh60qoSKr+RDhYctVA=
 github.com/will-rowe/gfa v0.0.0-20190502084819-05c93955478b/go.mod h1:jSVX6uZtpiVv7aToIC1BEtuh2is2B4/GCkFvprNHgkY=
 github.com/will-rowe/ntHash v0.0.0-20190624153018-541592fc7931 h1:QCE806NstAGzZoHhyq+YZNOexOiRj9uNOGf/007yybg=

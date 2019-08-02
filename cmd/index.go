@@ -54,6 +54,12 @@ func init() {
 // runIndex is the main function for the index sub-command
 func runIndex() {
 
+	// check index flag is set (global flag but don't require it for all sub commands)
+	if *indexDir == "" {
+		fmt.Println("please specify a directory for the index files (--indexDir)")
+		os.Exit(1)
+	}
+
 	// set up profiling
 	if *profiling == true {
 		defer profile.Start(profile.MemProfile, profile.ProfilePath("./")).Stop()

@@ -66,9 +66,8 @@ func Execute() {
 
 // init the command line arguments
 func init() {
-	indexDir = RootCmd.PersistentFlags().StringP("indexDir", "i", "", "directory for to write/read the GROOT index files - required")
+	indexDir = RootCmd.PersistentFlags().StringP("indexDir", "i", "", "directory for to write/read the GROOT index files")
 	logFile = RootCmd.PersistentFlags().String("log", "", "filename for log file, STDOUT used by default")
 	proc = RootCmd.PersistentFlags().IntP("processors", "p", 1, "number of processors to use")
 	profiling = RootCmd.PersistentFlags().Bool("profiling", false, "create the files needed to profile GROOT using the go tool pprof")
-	RootCmd.MarkPersistentFlagRequired("indexDir")
 }

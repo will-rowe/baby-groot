@@ -149,11 +149,6 @@
       } else {
         statusUpdate('status', 'please get a more recent browser!');
       }
-let graphBytes, lshfBytes;
-
-      // load the default index
-      getGraphs("assets/groot-files/groot.gg");
-      getLSHforest("assets/groot-files/groot.lshf");
 
       // turn the spinner off
       document.getElementById("spinner").setAttribute('hidden', '');
@@ -181,22 +176,28 @@ let graphBytes, lshfBytes;
   <!--- JS for WASM --->
   <script type="text/javascript">
 
-    // memoryBytes is an Uint8Array pointing to the webassembly linear memory
-    //let memoryBytes = new WebAssembly.Memory({initial:32767, maximum:65536});
-    //let mod, inst, bytes;
-    let mod, inst, bytes, memoryBytes;
     const go = new Go();
+    
+    // memoryBytes is an Uint8Array pointing to the webassembly linear memory
+    let memoryBytes;
+    let graphBytes, lshfBytes;
+    let mod, inst, bytes;
 
-    WebAssembly.instantiateStreaming(fetch("baby-groot.wasm"), go.importObject).then((result) => {
-      mod = result.module;
-      inst = result.instance;
-      memoryBytes = new Uint8Array(inst.exports.mem.buffer);
-      run();
-    });
-    statusUpdate('status', 'GROOT is ready!');
-    async function run() {
-            await go.run(inst);
-    }
+		WebAssembly.instantiateStreaming(
+			fetch("baby-groot.wasm", {cache: 'no-cache'}), go.importObject).then((result) => {
+			mod = result.module;
+			inst = result.instance;
+			memoryBytes = new Uint8Array(inst.exports.mem.buffer)
+      statusUpdate('status', 'GROOT is ready!');
+			run();
+		});
+		async function run() {
+			await go.run(inst);
+		}
+
+    getGraphs("assets/groot-files/groot.gg");
+    getLSHforest("assets/groot-files/groot.lshf");
+
   </script>
 
   <!--- JS for modals --->

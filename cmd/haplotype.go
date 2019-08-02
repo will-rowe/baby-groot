@@ -54,11 +54,19 @@ func init() {
 
 // runHaplotype is the main function for the haplotype sub-command
 func runHaplotype() {
+
+	// check index flag is set (global flag but don't require it for all sub commands)
+	if *indexDir == "" {
+		fmt.Println("please specify a directory with the index files (--indexDir)")
+		os.Exit(1)
+	}
+
 	// set up profiling
 	if *profiling == true {
 		//defer profile.Start(profile.MemProfile, profile.ProfilePath("./")).Stop()
 		defer profile.Start(profile.ProfilePath("./")).Stop()
 	}
+
 	// start logging
 	if *logFile != "" {
 		logFH := misc.StartLogging(*logFile)
