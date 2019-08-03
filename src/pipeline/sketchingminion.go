@@ -21,7 +21,7 @@ type sketchingMinion struct {
 	mappedCount      int
 	multimappedCount int
 	mappingMap       map[string]float64
-	wg 				*sync.WaitGroup
+	wg               *sync.WaitGroup
 }
 
 // newSketchingMinion is the constructor function
@@ -39,7 +39,7 @@ func newSketchingMinion(id int, runtimeInfo *Info, kmerSize, sketchSize uint, km
 		mappedCount:      0,
 		multimappedCount: 0,
 		mappingMap:       make(map[string]float64),
-		wg: wg,
+		wg:               wg,
 	}
 }
 
@@ -83,7 +83,7 @@ func (sketchingMinion *sketchingMinion) start() {
 				}
 
 				// tell the boss that a read has been processed
-				sketchingMinion.wg.Done()
+				//sketchingMinion.wg.Done()
 
 			// end the sketchingMinion go function if a stop signal has been sent
 			case <-sketchingMinion.stop:

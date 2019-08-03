@@ -150,6 +150,9 @@
         statusUpdate('status', 'please get a more recent browser!');
       }
 
+      getGraphs("assets/groot-files/dummy-db/groot.gg");
+      getLSHforest("assets/groot-files/dummy-db/groot.lshf");
+
       // turn the spinner off
       document.getElementById("spinner").setAttribute('hidden', '');
 
@@ -194,9 +197,6 @@
 		async function run() {
 			await go.run(inst);
 		}
-
-    getGraphs("assets/groot-files/groot.gg");
-    getLSHforest("assets/groot-files/groot.lshf");
 
   </script>
 

@@ -11,10 +11,10 @@ import (
 
 // theBoss is used to orchestrate the minions
 type theBoss struct {
-	info            *Info       // the runtime info for the pipeline
-	reads      chan []byte // the boss uses this channel to receive data from the main sketching pipeline
+	info              *Info       // the runtime info for the pipeline
+	reads             chan []byte // the boss uses this channel to receive data from the main sketching pipeline
 	receivedReadCount int
-	wg sync.WaitGroup
+	wg                sync.WaitGroup
 
 	// the following fields are used by the sketching minions
 	sketchingMinionRegister []*sketchingMinion // a slice of all the sketching minions controlled by this boss
@@ -105,11 +105,11 @@ func mapReads(runtimeInfo *Info, inputChan chan []byte) (*theBoss, error) {
 
 	// create a boss to orchestrate the minions
 	boss := &theBoss{
-		info:            runtimeInfo,
-		reads:      	 inputChan,
+		info:              runtimeInfo,
+		reads:             inputChan,
 		receivedReadCount: 0,
-		readCount:       0,
-		mappedCount:     0,
+		readCount:         0,
+		mappedCount:       0,
 	}
 
 	// launch the graph minions
@@ -145,7 +145,7 @@ func mapReads(runtimeInfo *Info, inputChan chan []byte) (*theBoss, error) {
 		freeMinion <- read
 
 		// tell the boss a read is being processed
-		boss.wg.Add(1)
+		//boss.wg.Add(1)
 
 		// print current memory usage every 100,000 reads
 		boss.receivedReadCount++
@@ -157,7 +157,7 @@ func mapReads(runtimeInfo *Info, inputChan chan []byte) (*theBoss, error) {
 	}
 
 	// close the channels
-	boss.wg.Wait()
+	//boss.wg.Wait()
 	boss.stopMinions()
 
 	return boss, nil
