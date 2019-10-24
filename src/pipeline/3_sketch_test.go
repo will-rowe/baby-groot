@@ -25,7 +25,7 @@ func TestSketching(t *testing.T) {
 	dataStream := NewDataStreamer(testParameters)
 	fastqHandler := NewFastqHandler(testParameters)
 	fastqChecker := NewFastqChecker(testParameters)
-	readMapper := NewDbQuerier(testParameters)
+	readMapper := NewReadMapper(testParameters)
 	graphPruner := NewGraphPruner(testParameters, false)
 	dataStream.Connect(fastq)
 	fastqHandler.Connect(dataStream)

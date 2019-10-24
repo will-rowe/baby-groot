@@ -276,8 +276,8 @@ type ReadMapper struct {
 	readStats [4]int // corresponds to num. reads, total num. mapped, num. multimapped, total k-mers
 }
 
-// NewDbQuerier is the constructor
-func NewDbQuerier(info *Info) *ReadMapper {
+// NewReadMapper is the constructor
+func NewReadMapper(info *Info) *ReadMapper {
 	return &ReadMapper{info: info, output: make(chan *graph.GrootGraph), readStats: [4]int{0, 0, 0, 0}}
 }
 
@@ -300,16 +300,14 @@ func (proc *ReadMapper) Run() {
 	misc.ErrorCheck(err)
 
 	// log some stuff
-	proc.readStats[0] = theBoss.readCount
-	proc.readStats[1] = theBoss.mappedCount
-	proc.readStats[2] = theBoss.multimappedCount
-
-	// log some stuff
-	if proc.readStats[0] == 0 {
+	if theBoss.receivedReadCount == 0 {
 		misc.ErrorCheck(fmt.Errorf("no reads passed quality-based trimming"))
 	} else {
-		log.Printf("\tnumber of reads sketched: %d\n", proc.readStats[0])
+		log.Printf("\tnumber of reads sketched: %d\n", theBoss.receivedReadCount)
 	}
+	proc.readStats[0] = theBoss.receivedReadCount
+	proc.readStats[1] = theBoss.mappedCount
+	proc.readStats[2] = theBoss.multimappedCount
 
 	// nothing may have mapped, which isn't an error - so make GROOT exit gracefully
 	if proc.readStats[1] == 0 {
@@ -319,11 +317,11 @@ func (proc *ReadMapper) Run() {
 		proc.info.Store = make(graph.Store)
 		return
 	}
-	log.Printf("\ttotal number of mapped reads: %d\n", proc.readStats[1])
-	log.Printf("\t\tuniquely mapped: %d\n", (proc.readStats[1] - proc.readStats[2]))
-	log.Printf("\t\tmultimapped: %d\n", proc.readStats[2])
+	log.Printf("\ttotal number of mapped reads: %d\n", theBoss.mappedCount)
+	log.Printf("\t\tuniquely mapped: %d\n", (theBoss.mappedCount - theBoss.multimappedCount))
+	log.Printf("\t\tmultimapped: %d\n", theBoss.multimappedCount)
 
-	// send on the graphs now that the mapping is done
+	// send on the graphs for pruning now that the mapping is done
 	for _, g := range proc.info.Store {
 		proc.readStats[3] += int(g.KmerTotal)
 		proc.output <- g

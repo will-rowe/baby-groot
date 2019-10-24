@@ -19,7 +19,7 @@ var availIdent = []string{"90"}
 var md5sums = map[string]string{
 	"arg-annot.90":     "d5398b7bd40d7e872c3e4a689cee4726",
 	"resfinder.90":     "de34ab790693cb7c7b656d537ec40f05",
-	"card.90":          "3e8a7b56fb7ce1c857299decac2d71c2",
+	"card.90":          "23b24d37edfd20016c2d8b5a522a4d10",
 	"groot-db.90":      "2cbbe9a89c2ce23c09575198832250d3",
 	"groot-core-db.90": "f3cac49ff44624a26ea2d92171a73174",
 }

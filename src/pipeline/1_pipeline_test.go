@@ -30,7 +30,7 @@ var gfaList = []string{"test-data/tmp/groot-graph-0.gfa"}
 TEST PARAMETERS
 */
 var testParameters = &Info{
-	NumProc:    1,
+	NumProc:    2,
 	Version:    version.VERSION,
 	KmerSize:   31,
 	SketchSize: 42,

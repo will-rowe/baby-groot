@@ -7,26 +7,24 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/will-rowe/baby-groot/src/lshforest"
-
 	"github.com/pkg/profile"
 	"github.com/spf13/cobra"
+	"github.com/will-rowe/baby-groot/src/lshforest"
 	"github.com/will-rowe/baby-groot/src/misc"
 	"github.com/will-rowe/baby-groot/src/pipeline"
 	"github.com/will-rowe/baby-groot/src/version"
 )
 
-// MINION_MULTIPLIER is a temporary way of setting the number of minions used for mapping reads
+// MinionMultiplier is a temporary way of setting the number of minions used for mapping reads
 // it multiplies the number of available processors, yielding the number of concurrent processes for mapping reads
 // at some stage, I want to benchmark how many minions can be mapping reads whilst keeping RAM usage reasonable
 // there is also the bottleneck of accessing the LSH Forest (and to some extent the graphs)
-const MINION_MULTIPLIER = 1
+const MinionMultiplier = 1
 
 // the command line arguments
 var (
 	fastq           *[]string                                                         // list of FASTQ files to align
 	fasta           *bool                                                             // flag to treat input as fasta sequences
-	bloomFilter     *bool                                                             // flag to use a bloom filter in order to prevent unique k-mers being used during sketching
 	minKmerCoverage *float64                                                          // the minimum k-mer coverage per base of a segment
 	graphDir        *string                                                           // directory to save gfa graphs to
 	defaultGraphDir = "./groot-graphs-" + string(time.Now().Format("20060102150405")) // a default graphDir
@@ -49,7 +47,6 @@ var sketchCmd = &cobra.Command{
 func init() {
 	fastq = sketchCmd.Flags().StringSliceP("fastq", "f", []string{}, "FASTQ file(s) to align")
 	fasta = sketchCmd.Flags().Bool("fasta", false, "if set, the input will be treated as fasta sequence(s) (experimental feature)")
-	bloomFilter = sketchCmd.Flags().Bool("bloomFilter", false, "if set, a bloom filter will be used to stop unique k-mers being added to sketches")
 	minKmerCoverage = sketchCmd.Flags().Float64P("minKmerCov", "c", 1.0, "minimum number of k-mers covering each base of a graph segment")
 	graphDir = sketchCmd.PersistentFlags().StringP("graphDir", "g", defaultGraphDir, "directory to save variation graphs to")
 	RootCmd.AddCommand(sketchCmd)
@@ -87,11 +84,6 @@ func runSketch() {
 	// check the supplied files and then log some stuff
 	log.Printf("checking parameters...")
 	misc.ErrorCheck(alignParamCheck())
-	if *bloomFilter {
-		log.Printf("\tignoring unique k-mers: true")
-	} else {
-		log.Printf("\tignoring unique k-mers: false")
-	}
 	log.Printf("\tminimum k-mer coverage: %.0f", *minKmerCoverage)
 	log.Printf("\tprocessors: %d", *proc)
 	for _, file := range *fastq {
@@ -126,11 +118,10 @@ func runSketch() {
 	}
 
 	// add the sketch information to the existing groot runtime information
-	info.NumProc = *proc * MINION_MULTIPLIER
+	info.NumProc = *proc * MinionMultiplier
 	info.Profiling = *profiling
 	info.Sketch = pipeline.SketchCmd{
 		Fasta:           *fasta,
-		BloomFilter:     *bloomFilter,
 		MinKmerCoverage: *minKmerCoverage,
 	}
 
@@ -143,7 +134,7 @@ func runSketch() {
 	dataStream := pipeline.NewDataStreamer(info)
 	fastqHandler := pipeline.NewFastqHandler(info)
 	fastqChecker := pipeline.NewFastqChecker(info)
-	readMapper := pipeline.NewDbQuerier(info)
+	readMapper := pipeline.NewReadMapper(info)
 	graphPruner := pipeline.NewGraphPruner(info, false)
 
 	// connect the pipeline processes
