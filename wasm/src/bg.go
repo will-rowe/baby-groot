@@ -14,24 +14,18 @@ type GrootWASM struct {
 	fastqFiles []interface{}
 	fastq      chan []byte
 
-	inBuf1     []uint8
-	inBuf2     []uint8
-	inBuf3     []uint8
-	initMemCb  js.Func
-	initMem2Cb js.Func
-	initMem3Cb js.Func
+	inBuf1 []uint8
+	inBuf2 []uint8
+	inBuf3 []uint8
 
-	inputCheckerCb   js.Func
-	fastqFilesCb     js.Func
-	grootCb          js.Func
-	closeFASTQchanCb js.Func
-	shutdownCb       js.Func
+	grootCb    js.Func
+	shutdownCb js.Func
 
-	console    js.Value
-	done       chan struct{}
-	inputCheck bool
-	running    bool
-	results    bool
+	console      js.Value
+	done         chan struct{}
+	inputChecked bool
+	running      bool
+	results      bool
 }
 
 // New returns a new instance of GrootWASM
@@ -48,41 +42,27 @@ func New() *GrootWASM {
 func (s *GrootWASM) Start() {
 	defer s.releaseCallbacks()
 
-	// the call back for the mem pointers
-	s.setupInitMem1Cb()
-	js.Global().Set("initFASTQmem", s.initMemCb)
+	// the call backs for loading the data
+	js.Global().Set("getFiles", js.FuncOf(s.getFiles))
+	js.Global().Set("loadFASTQ", js.FuncOf(s.loadFASTQ))
+	js.Global().Set("loadGraphs", js.FuncOf(s.loadGraphs))
+	js.Global().Set("loadIndex", js.FuncOf(s.loadIndex))
+	js.Global().Set("inputCheck", js.FuncOf(s.inputCheck))
+	js.Global().Set("closeFASTQchan", js.FuncOf(s.closeFASTQchan))
 
-	s.setupInitMem2Cb()
-	js.Global().Set("initGraphMem", s.initMem2Cb)
-
-	s.setupInitMem3Cb()
-	js.Global().Set("initIndexMem", s.initMem3Cb)
-
-	// the call back for getting the FASTQ file list
-	s.setupFastqFiles()
-	js.Global().Set("loadFileList", s.fastqFilesCb)
-
-	// the call back for checking the input
-	s.setupInputCheckerCb()
-	js.Global().Set("inputCheck", s.inputCheckerCb)
-
-	// the call back for running GROOT!
+	// set up the callbacks for start/stopping the GROOT app
 	s.setupGrootCb()
 	js.Global().Get("document").
 		Call("getElementById", "startIcon").
 		Call("addEventListener", "click", s.grootCb)
 
-	// the call back for closing the input channel
-	s.setupCloseFASTQchanCb()
-	js.Global().Set("closeFASTQchan", s.closeFASTQchanCb)
-
-	// the call back for shutting down the app
 	s.setupShutdownCb()
 	js.Global().Get("document").
 		Call("getElementById", "close").
 		Call("addEventListener", "click", s.shutdownCb)
-	<-s.done
 
+	// use this blocking channel to wait keep the app alive until the shutdown is initiated
+	<-s.done
 }
 
 // setupShutdownCb
@@ -105,13 +85,6 @@ func (s *GrootWASM) iconUpdate(icon string) {
 
 // releaseCallbacks
 func (s *GrootWASM) releaseCallbacks() {
-	//s.statusUpdate("Shutting down GROOT app...")
-	s.initMemCb.Release()
-	s.initMem2Cb.Release()
-	s.initMem3Cb.Release()
-	s.fastqFilesCb.Release()
-	s.closeFASTQchanCb.Release()
-	s.inputCheckerCb.Release()
 	s.grootCb.Release()
 	s.shutdownCb.Release()
 	s.statusUpdate("GROOT has shut the app down!")

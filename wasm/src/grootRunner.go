@@ -14,7 +14,7 @@ import (
 func (s *GrootWASM) setupGrootCb() {
 	s.grootCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		go func() {
-			if !s.inputCheck {
+			if !s.inputChecked {
 				s.statusUpdate("problem with input!")
 				return
 			}
@@ -40,7 +40,7 @@ func (s *GrootWASM) setupGrootCb() {
 			wasmStreamer := pipeline.NewWASMstreamer()
 			fastqHandler := pipeline.NewFastqHandler(s.info)
 			fastqChecker := pipeline.NewFastqChecker(s.info)
-			readMapper := pipeline.NewDbQuerier(s.info)
+			readMapper := pipeline.NewReadMapper(s.info)
 			graphPruner := pipeline.NewGraphPruner(s.info, true)
 			emPathFinder := pipeline.NewEMpathFinder(s.info)
 			haploParser := pipeline.NewHaplotypeParser(s.info)

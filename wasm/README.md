@@ -12,7 +12,6 @@ Browser support is restricted to Chrome, Firefox and Opera for now.
 
 * can't load large index
   * runs out of memory when allocating
-  * a 150Mb groot index takes less than 800Mb RAM to load from disk, yet this is resulting in memalloc failure in WASM
 * premature terminations aren't graceful
   * they just print to the console, no notifications for user
   * in some cases, the application doesn't shut down

@@ -1,24 +1,5 @@
-// a selection of JS functions for running the GROOT WASM port
-
-// getElementById
-function $id(id) {
-	return document.getElementById(id);
-}
-
-// gotMem sets the webassembly linear memory with the image buffer result at the slice header pointer passed from Go
-function gotMem(pointer) {
-    memoryBytes.set(bytes, pointer);
-}
-function gotGraphMem(pointer) {
-    memoryBytes.set(graphBytes, pointer);
-}
-function gotLshfMem(pointer) {
-    memoryBytes.set(lshfBytes, pointer);
-}
-
 // getGraphs gets the groot graphs ready for loading
 function getGraphs(graphURL) {
-
     var reader = new FileReader();
     fetch(graphURL).then(function(response) {
         if (!response.ok) {
@@ -31,13 +12,12 @@ function getGraphs(graphURL) {
     .catch(function(error) {
         console.log(error);
     });
-    
     reader.onload = (ev) => {
-        graphBytes = new Uint8Array(ev.target.result);
-        if (graphBytes === null) {
+        var raw_data = new Uint8Array(ev.target.result, 0, ev.target.result.byteLength);
+        if (raw_data === null) {
             statusUpdate("status", "could not download groot graphs!")
         } else {
-            initGraphMem(graphBytes.length);
+            loadGraphs(graphURL, raw_data, reader.result.byteLength);
         }
     }
 }
@@ -57,16 +37,14 @@ function getLSHforest(lshfURL) {
         console.log(error);
     });
     reader.onload = (ev) => {
-        lshfBytes = new Uint8Array(ev.target.result);
-        if (lshfBytes === null) {
+        var raw_data = new Uint8Array(ev.target.result, 0, ev.target.result.byteLength);
+        if (raw_data === null) {
             statusUpdate("status", "could not download index!")
         } else {
-            initIndexMem(lshfBytes.length);
+            loadIndex(lshfURL, raw_data, reader.result.byteLength);
         }
     }
 }
-
-
 
 // fastqStreamer
 async function fastqStreamer(fileArr) {
@@ -94,16 +72,19 @@ async function fastqStreamer(fileArr) {
     });
 }
 
-//
+// streamFastq is called by the fastqStreamer
 function streamFastq(fileName, closeSignal) {
         fetch(fileName).then(function(response) {
             console.log("fetching: ", fileName)
             var pump = function(reader) {
                 return reader.read().then(function(result) {
                     // send the chunk on for processing
-                    var chunk = result.value;
-                    bytes = new Uint8Array(chunk);
-                    initFASTQmem(bytes.length);
+                    var raw_data = new Uint8Array(result.value);
+                    if (raw_data === null) {
+                        statusUpdate("status", "could not munch FASTQ!");
+                    } else {
+                        loadFASTQ(fileName, raw_data, raw_data.length);
+                    }
                     // if we're done reading the stream, return
                     if (result.done) {
                         if (closeSignal == true) {
@@ -120,6 +101,11 @@ function streamFastq(fileName, closeSignal) {
         }).catch(function(error) {
             console.log(error);
         });
+}
+
+// getElementById
+function $id(id) {
+	return document.getElementById(id);
 }
 
 // toggleDiv
@@ -228,37 +214,3 @@ $('#uploader1').bind('change', function () {
       $("#noFile").text(filename.replace("C:\\fakepath\\", "")); 
     }
   });
-
-
-
-// TODO: this is stupid, can't I bypass needing to do so many conversions?
-function toUTF8Array(str) {
-    var utf8 = [];
-    for (var i=0; i < str.length; i++) {
-        var charcode = str.charCodeAt(i);
-        if (charcode < 0x80) utf8.push(charcode);
-        else if (charcode < 0x800) {
-            utf8.push(0xc0 | (charcode >> 6), 
-                      0x80 | (charcode & 0x3f));
-        }
-        else if (charcode < 0xd800 || charcode >= 0xe000) {
-            utf8.push(0xe0 | (charcode >> 12), 
-                      0x80 | ((charcode>>6) & 0x3f), 
-                      0x80 | (charcode & 0x3f));
-        }
-        // surrogate pair
-        else {
-            i++;
-            // UTF-16 encodes 0x10000-0x10FFFF by
-            // subtracting 0x10000 and splitting the
-            // 20 bits of 0x0-0xFFFFF into two halves
-            charcode = 0x10000 + (((charcode & 0x3ff)<<10)
-                      | (str.charCodeAt(i) & 0x3ff));
-            utf8.push(0xf0 | (charcode >>18), 
-                      0x80 | ((charcode>>12) & 0x3f), 
-                      0x80 | ((charcode>>6) & 0x3f), 
-                      0x80 | (charcode & 0x3f));
-        }
-    }
-    return utf8;
-}
