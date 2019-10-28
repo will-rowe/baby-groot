@@ -11,26 +11,26 @@ import (
 )
 
 // setupGrootCb sets up the GROOT callback and runs GROOT when everything is set
-func (s *GrootWASM) setupGrootCb() {
-	s.grootCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+func (GrootWASM *GrootWASM) setupGrootCb() {
+	GrootWASM.grootCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		go func() {
-			if !s.inputChecked {
-				s.statusUpdate("problem with input!")
+			if !GrootWASM.inputChecked {
+				GrootWASM.statusUpdate("problem with input!")
 				return
 			}
 
 			// stop GROOT?
-			if s.running == true {
-				s.running = false
-				s.statusUpdate("stopped GROOT!")
-				js.Global().Call("stopSpinner")
+			if GrootWASM.running == true {
+				GrootWASM.running = false
+				GrootWASM.statusUpdate("stopped GROOT!")
+				js.Global().Call("stopRecord")
 				js.Global().Call("stopLogo")
 				return
 			}
 
 			// start GROOT notifications
-			s.running = true
-			s.statusUpdate("running GROOT...")
+			GrootWASM.running = true
+			GrootWASM.statusUpdate("running GROOT...")
 			js.Global().Call("startRecord")
 			js.Global().Call("startLogo")
 			startTime := time.Now()
@@ -38,15 +38,15 @@ func (s *GrootWASM) setupGrootCb() {
 			// set up the pipeline
 			sketchingPipeline := pipeline.NewPipeline()
 			wasmStreamer := pipeline.NewWASMstreamer()
-			fastqHandler := pipeline.NewFastqHandler(s.info)
-			fastqChecker := pipeline.NewFastqChecker(s.info)
-			readMapper := pipeline.NewReadMapper(s.info)
-			graphPruner := pipeline.NewGraphPruner(s.info, true)
-			emPathFinder := pipeline.NewEMpathFinder(s.info)
-			haploParser := pipeline.NewHaplotypeParser(s.info)
+			fastqHandler := pipeline.NewFastqHandler(GrootWASM.info)
+			fastqChecker := pipeline.NewFastqChecker(GrootWASM.info)
+			readMapper := pipeline.NewReadMapper(GrootWASM.info)
+			graphPruner := pipeline.NewGraphPruner(GrootWASM.info, true)
+			emPathFinder := pipeline.NewEMpathFinder(GrootWASM.info)
+			haploParser := pipeline.NewHaplotypeParser(GrootWASM.info)
 
 			// connect the pipeline
-			wasmStreamer.ConnectChan(s.fastq)
+			wasmStreamer.ConnectChan(GrootWASM.fastqInput)
 			fastqHandler.ConnectWASM(wasmStreamer)
 			fastqChecker.Connect(fastqHandler)
 			readMapper.Connect(fastqChecker)
@@ -56,7 +56,7 @@ func (s *GrootWASM) setupGrootCb() {
 			sketchingPipeline.AddProcesses(wasmStreamer, fastqHandler, fastqChecker, readMapper, graphPruner, emPathFinder, haploParser)
 
 			// start the stream and send data to the pipeline
-			go js.Global().Call("fastqStreamer", s.fastqFiles)
+			go js.Global().Call("fastqStreamer", GrootWASM.fastqFiles)
 
 			// run the pipeline
 			fmt.Println("starting the pipeline")
@@ -74,18 +74,18 @@ func (s *GrootWASM) setupGrootCb() {
 				fmt.Println("no reads mapped :(")
 				js.Global().Call("stopRecord")
 				js.Global().Call("stopLogo")
-				s.iconUpdate("startIcon")
-				s.statusUpdate("no reads mapped to graphs :(")
+				GrootWASM.iconUpdate("startIcon")
+				GrootWASM.statusUpdate("no reads mapped to graphs :(")
 				return
 			}
-			s.statusUpdate(fmt.Sprintf("mapped reads = %d/%d", readStats[1], readStats[0]))
+			GrootWASM.statusUpdate(fmt.Sprintf("mapped reads = %d/%d", readStats[1], readStats[0]))
 
 			// get the results
-			s.results = false
-			for _, g := range s.info.Store {
+			GrootWASM.results = false
+			for _, g := range GrootWASM.info.Store {
 				paths, abundances := g.GetEMpaths()
 				if len(paths) != 0 {
-					s.results = true
+					GrootWASM.results = true
 					fmt.Printf("\tgraph %d has %d called alleles after EM", g.GraphID, len(paths))
 					for i, path := range paths {
 						js.Global().Call("addResults", path, abundances[i])
@@ -96,11 +96,11 @@ func (s *GrootWASM) setupGrootCb() {
 			// report any results
 			js.Global().Call("stopRecord")
 			js.Global().Call("stopLogo")
-			s.iconUpdate("startIcon")
-			if s.results == false {
-				s.statusUpdate("no results found :(")
+			GrootWASM.iconUpdate("startIcon")
+			if GrootWASM.results == false {
+				GrootWASM.statusUpdate("no results found :(")
 			} else {
-				s.statusUpdate("GROOT finished!")
+				GrootWASM.statusUpdate("GROOT finished!")
 				secs := time.Since(startTime).Seconds()
 				mins := time.Since(startTime).Minutes()
 				timer := fmt.Sprintf("%.0fmins %.0fsecs", mins, secs)
@@ -113,11 +113,11 @@ func (s *GrootWASM) setupGrootCb() {
 }
 
 //
-func (s *GrootWASM) printSeqs() {
-	for _, g := range s.info.Store {
+func (GrootWASM *GrootWASM) printSeqs() {
+	for _, g := range GrootWASM.info.Store {
 		seqs, err := g.Graph2Seqs()
 		if err != nil {
-			s.statusUpdate(fmt.Sprintf("%v", err))
+			GrootWASM.statusUpdate(fmt.Sprintf("%v", err))
 		}
 		for id, seq := range seqs {
 			fmt.Printf(">%v\n%v\n", string(g.Paths[id]), string(seq))

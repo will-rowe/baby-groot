@@ -136,10 +136,13 @@
   <!--- External JS --->
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js" type="text/javascript"></script>
   <script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-90659329-2" type="text/javascript"></script>
-  <script src="assets/js/wasm_exec.js" type="text/javascript"></script>
-  <script src="assets/js/utils.js" type="text/javascript"></script>
   
   <!--- JS for WASM --->
+  <script src="assets/js/wasm_exec.js" type="text/javascript"></script>
+  <script src="assets/js/utils.js" type="text/javascript"></script>
+  <!---<script src="assets/js/bundle.js" type="text/javascript"></script>--->
+
+  
   <script type="text/javascript">
     if (WebAssembly) {
                  // WebAssembly.instantiateStreaming is not currently available in Safari
@@ -152,7 +155,6 @@
                  const go = new Go();
                  WebAssembly.instantiateStreaming(fetch("baby-groot.wasm"), go.importObject).then((result) => {
                     go.run(result.instance);
-                    console.log("WebAssembly loaded, now getting GROOT's files ready")
                     initInputFiles();
                     getGraphs("assets/groot-files/dummy-db/groot.gg");
                     getLSHforest("assets/groot-files/dummy-db/groot.lshf");
@@ -178,7 +180,7 @@
     //  var selectedIndex = document.getElementById("indexSelecter").selectedOptions;
     //  getIndex(selectedIndex[0].value);
     //});
-    
+
     // listen out for input checker
     document.getElementById("inputChecker").addEventListener('click', function() {
       toggleDiv("inputModal");
@@ -219,71 +221,81 @@
     }
   </script>
 
-  <!--- JS for FASTQ files --->
-  <script>
-    var fastqStreamer;
+<!--- JS for FASTQ files --->
+<script>
+  $('#uploader1').bind('change', function () {
+    var filename = $("#uploader1").val();
+    if (/^\s*$/.test(filename)) {
+      $("#fastqSelecter").removeClass('active');
+      $("#noFile").text("No file chosen..."); 
+    }
+    else {
+      $("#fastqSelecter").addClass('active');
+      $("#noFile").text(filename.replace("C:\\fakepath\\", "")); 
+    }
+  });
 
-    function initInputFiles() {
 
-      // set up the FASTQ input
-      var uploader1 = $id("uploader1"), filedrag = $id("filedrag");
-      uploader1.addEventListener("change", FileSelectHandler, false);
-      var xhr = new XMLHttpRequest();
-      if (xhr.upload) {
+function initInputFiles() {
 
-        // file drop
-        filedrag.addEventListener("dragover", FileDragHover, false);
-        filedrag.addEventListener("dragleave", FileDragHover, false);
-        filedrag.addEventListener("drop", FileSelectHandler, false);
-        filedrag.style.display = "block";
-      }
+  // set up the FASTQ input
+  var uploader1 = document.getElementById("uploader1"), filedrag = document.getElementById("filedrag");
+  uploader1.addEventListener("change", FileSelectHandler, false);
+  var xhr = new XMLHttpRequest();
+  if (xhr.upload) {
+
+    // file drop
+    filedrag.addEventListener("dragover", FileDragHover, false);
+    filedrag.addEventListener("dragleave", FileDragHover, false);
+    filedrag.addEventListener("drop", FileSelectHandler, false);
+    filedrag.style.display = "block";
+  }
+}
+
+function FileDragHover(e) {
+    e.stopPropagation();
+    e.preventDefault();
+    e.target.className = (e.type == "dragover" ? "hover" : "");
+}
+
+
+function FileSelectHandler(e) {
+
+    // cancel event and hover styling
+    FileDragHover(e);
+
+    // fetch FileList object
+    var files = e.target.files || e.dataTransfer.files;
+    if (files.length != 0) {
+      $("#fastqSelecter").addClass('active');
+      document.getElementById("noFile").innerHTML = "";
+    } else {
+      $("#fastqSelecter").removeClass('active');
+      document.getElementById("noFile").innerHTML = "no files :(";
     }
 
-    function FileDragHover(e) {
-          e.stopPropagation();
-          e.preventDefault();
-          e.target.className = (e.type == "dragover" ? "hover" : "");
+    // process all FASTQ files
+    var fastqList = [];
+    for (var i = 0, f; f = files[i]; i++) {
+
+      // add filename to the selector bar
+      var fileName = f.name.replace("C:\\fakepath\\", "");
+      document.getElementById("noFile").innerHTML += fileName + ",";
+
+      // add the file for GROOT
+      fastqList.push(URL.createObjectURL(f));
+      //fastqList.push(f);
     }
 
+    // get the FASTQ streamer ready
+    getFiles(fastqList);
+}
 
-    function FileSelectHandler(e) {
 
-          // cancel event and hover styling
-          FileDragHover(e);
 
-          // fetch FileList object
-          var files = e.target.files || e.dataTransfer.files;
-          if (files.length != 0) {
-            $("#fastqSelecter").addClass('active');
-            document.getElementById("noFile").innerHTML = "";
-          } else {
-            $("#fastqSelecter").removeClass('active');
-            document.getElementById("noFile").innerHTML = "no files :(";
-          }
+</script>
 
-          // process all FASTQ files
-          var fastqList = [];
-          for (var i = 0, f; f = files[i]; i++) {
 
-            // add filename to the selector bar
-            var fileName = f.name.replace("C:\\fakepath\\", "");
-            document.getElementById("noFile").innerHTML += fileName + ",";
 
-            // add the file for GROOT
-            fastqList.push(URL.createObjectURL(f));
-          }
-
-          // get the FASTQ streamer ready
-          getFiles(fastqList);
-    }
-  </script>
-
-  <!--- JS for Google --->
-  <script type="text/javascript">
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'UA-90659329-2');
-  </script>
 </body>
 </html>

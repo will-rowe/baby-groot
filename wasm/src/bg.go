@@ -10,13 +10,11 @@ import (
 
 // GrootWASM
 type GrootWASM struct {
-	info       *pipeline.Info
-	fastqFiles []interface{}
-	fastq      chan []byte
-
-	inBuf1 []uint8
-	inBuf2 []uint8
-	inBuf3 []uint8
+	info        *pipeline.Info
+	fastqFiles  []interface{}
+	fastqInput  chan []byte
+	graphBuffer []uint8
+	indexBuffer []uint8
 
 	grootCb    js.Func
 	shutdownCb js.Func
@@ -31,62 +29,62 @@ type GrootWASM struct {
 // New returns a new instance of GrootWASM
 func New() *GrootWASM {
 	return &GrootWASM{
-		info:    new(pipeline.Info),
-		console: js.Global().Get("console"),
-		fastq:   make(chan []byte, pipeline.BUFFERSIZE),
-		done:    make(chan struct{}),
+		info:       new(pipeline.Info),
+		console:    js.Global().Get("console"),
+		fastqInput: make(chan []byte, pipeline.BUFFERSIZE),
+		done:       make(chan struct{}),
 	}
 }
 
 // Start sets up all the callbacks and waits for the close signal to be sent from the browser.
-func (s *GrootWASM) Start() {
-	defer s.releaseCallbacks()
+func (GrootWASM *GrootWASM) Start() {
+	defer GrootWASM.releaseCallbacks()
 
 	// the call backs for loading the data
-	js.Global().Set("getFiles", js.FuncOf(s.getFiles))
-	js.Global().Set("loadFASTQ", js.FuncOf(s.loadFASTQ))
-	js.Global().Set("loadGraphs", js.FuncOf(s.loadGraphs))
-	js.Global().Set("loadIndex", js.FuncOf(s.loadIndex))
-	js.Global().Set("inputCheck", js.FuncOf(s.inputCheck))
-	js.Global().Set("closeFASTQchan", js.FuncOf(s.closeFASTQchan))
+	js.Global().Set("getFiles", js.FuncOf(GrootWASM.getFiles))
+	js.Global().Set("munchFASTQ", js.FuncOf(GrootWASM.munchFASTQ))
+	js.Global().Set("loadGraphs", js.FuncOf(GrootWASM.loadGraphs))
+	js.Global().Set("loadIndex", js.FuncOf(GrootWASM.loadIndex))
+	js.Global().Set("inputCheck", js.FuncOf(GrootWASM.inputCheck))
+	js.Global().Set("closeFASTQchan", js.FuncOf(GrootWASM.closeFASTQchan))
 
 	// set up the callbacks for start/stopping the GROOT app
-	s.setupGrootCb()
+	GrootWASM.setupGrootCb()
 	js.Global().Get("document").
 		Call("getElementById", "startIcon").
-		Call("addEventListener", "click", s.grootCb)
+		Call("addEventListener", "click", GrootWASM.grootCb)
 
-	s.setupShutdownCb()
+	GrootWASM.setupShutdownCb()
 	js.Global().Get("document").
 		Call("getElementById", "close").
-		Call("addEventListener", "click", s.shutdownCb)
+		Call("addEventListener", "click", GrootWASM.shutdownCb)
 
-	// use this blocking channel to wait keep the app alive until the shutdown is initiated
-	<-s.done
+	// use this blocking channel to keep the app alive until the shutdown is initiated
+	<-GrootWASM.done
 }
 
 // setupShutdownCb
-func (s *GrootWASM) setupShutdownCb() {
-	s.shutdownCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		s.done <- struct{}{}
+func (GrootWASM *GrootWASM) setupShutdownCb() {
+	GrootWASM.shutdownCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		GrootWASM.done <- struct{}{}
 		return nil
 	})
 }
 
 // statusUpdate calls the statusUpdate javascript function, which prints a message to the webpage
-func (s *GrootWASM) statusUpdate(msg string) {
+func (GrootWASM *GrootWASM) statusUpdate(msg string) {
 	js.Global().Call("statusUpdate", "status", msg)
 }
 
 // iconUpdate calls the iconUpdate javascript function, which changes an icon to a tick
-func (s *GrootWASM) iconUpdate(icon string) {
+func (GrootWASM *GrootWASM) iconUpdate(icon string) {
 	js.Global().Call("iconUpdate", icon)
 }
 
 // releaseCallbacks
-func (s *GrootWASM) releaseCallbacks() {
-	s.grootCb.Release()
-	s.shutdownCb.Release()
-	s.statusUpdate("GROOT has shut the app down!")
-	s.iconUpdate("close")
+func (GrootWASM *GrootWASM) releaseCallbacks() {
+	GrootWASM.grootCb.Release()
+	GrootWASM.shutdownCb.Release()
+	GrootWASM.statusUpdate("GROOT has shut the app down!")
+	GrootWASM.iconUpdate("close")
 }

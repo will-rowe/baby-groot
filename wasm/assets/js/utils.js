@@ -46,6 +46,8 @@ function getLSHforest(lshfURL) {
     }
 }
 
+
+
 // fastqStreamer
 async function fastqStreamer(fileArr) {
     var items = fileArr[0]
@@ -83,7 +85,7 @@ function streamFastq(fileName, closeSignal) {
                     if (raw_data === null) {
                         statusUpdate("status", "could not munch FASTQ!");
                     } else {
-                        loadFASTQ(fileName, raw_data, raw_data.length);
+                        munchFASTQ(fileName, raw_data, raw_data.length);
                     }
                     // if we're done reading the stream, return
                     if (result.done) {
@@ -103,10 +105,7 @@ function streamFastq(fileName, closeSignal) {
         });
 }
 
-// getElementById
-function $id(id) {
-	return document.getElementById(id);
-}
+
 
 // toggleDiv
 function toggleDiv(id) {
@@ -203,14 +202,3 @@ function setButtonText(id, txt) {
     el.innerHTML = "<span style='color: white'>" + txt + "</span>";
 }
 
-$('#uploader1').bind('change', function () {
-    var filename = $("#uploader1").val();
-    if (/^\s*$/.test(filename)) {
-      $("#fastqSelecter").removeClass('active');
-      $("#noFile").text("No file chosen..."); 
-    }
-    else {
-      $("#fastqSelecter").addClass('active');
-      $("#noFile").text(filename.replace("C:\\fakepath\\", "")); 
-    }
-  });
