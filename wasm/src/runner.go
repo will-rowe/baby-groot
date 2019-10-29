@@ -15,14 +15,14 @@ func (GrootWASM *GrootWASM) setupGrootCb() {
 	GrootWASM.grootCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		go func() {
 			if !GrootWASM.inputChecked {
-				GrootWASM.statusUpdate("problem with input!")
+				GrootWASM.statusUpdate("> problem with input!")
 				return
 			}
 
 			// stop GROOT?
 			if GrootWASM.running == true {
 				GrootWASM.running = false
-				GrootWASM.statusUpdate("stopped GROOT!")
+				GrootWASM.statusUpdate("> stopped GROOT!")
 				js.Global().Call("stopRecord")
 				js.Global().Call("stopLogo")
 				return
@@ -30,7 +30,7 @@ func (GrootWASM *GrootWASM) setupGrootCb() {
 
 			// start GROOT notifications
 			GrootWASM.running = true
-			GrootWASM.statusUpdate("running GROOT...")
+			GrootWASM.statusUpdate("> running GROOT...")
 			js.Global().Call("startRecord")
 			js.Global().Call("startLogo")
 			startTime := time.Now()
@@ -75,7 +75,7 @@ func (GrootWASM *GrootWASM) setupGrootCb() {
 				js.Global().Call("stopRecord")
 				js.Global().Call("stopLogo")
 				GrootWASM.iconUpdate("startIcon")
-				GrootWASM.statusUpdate("no reads mapped to graphs :(")
+				GrootWASM.statusUpdate("> no reads mapped to graphs :(")
 				return
 			}
 			GrootWASM.statusUpdate(fmt.Sprintf("mapped reads = %d/%d", readStats[1], readStats[0]))
@@ -98,9 +98,9 @@ func (GrootWASM *GrootWASM) setupGrootCb() {
 			js.Global().Call("stopLogo")
 			GrootWASM.iconUpdate("startIcon")
 			if GrootWASM.results == false {
-				GrootWASM.statusUpdate("no results found :(")
+				GrootWASM.statusUpdate("> no results found :(")
 			} else {
-				GrootWASM.statusUpdate("GROOT finished!")
+				GrootWASM.statusUpdate("> GROOT finished!")
 				secs := time.Since(startTime).Seconds()
 				mins := time.Since(startTime).Minutes()
 				timer := fmt.Sprintf("%.0fmins %.0fsecs", mins, secs)

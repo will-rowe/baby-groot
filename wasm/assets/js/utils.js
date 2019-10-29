@@ -11,17 +11,6 @@ function toggleDiv(id) {
     }
 }
 
-// statusUpdate updates GROOT's message
-function statusUpdate(id, msg) {
-    var el = document.getElementById(id)
-    $(el)
-        .stop()
-        .fadeOut(500, function() {
-            el.innerHTML = msg
-            $(el, this).fadeIn(500)
-        })
-}
-
 // show will fade in an element using CSS
 function show(id) {
     var el = document.getElementById(id)

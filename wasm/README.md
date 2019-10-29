@@ -20,12 +20,10 @@ Browser support is restricted to Chrome, Firefox and Opera for now.
 
 ## Running locally
 
-To build the WASM binary and run the development server:
+To browserify the js, build the WASM binary and run the development server:
 
 ``` bash
-make
-
-go run dev-server.go
+make test
 ```
 
 ## Commands used to build index

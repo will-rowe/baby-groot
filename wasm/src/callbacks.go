@@ -62,33 +62,34 @@ func (GrootWASM *GrootWASM) inputCheck(this js.Value, args []js.Value) interface
 
 	// check the input first
 	if len(GrootWASM.fastqFiles) == 0 {
-		GrootWASM.statusUpdate("no FASTQ files selected!")
+		GrootWASM.statusUpdate("> no FASTQ files selected!")
 		return nil
 	}
 	if len(GrootWASM.graphBuffer) == 0 {
-		GrootWASM.statusUpdate("can't find graphs")
+		GrootWASM.statusUpdate("> can't find graphs")
 		return nil
 	}
 	if len(GrootWASM.indexBuffer) == 0 {
-		GrootWASM.statusUpdate("can't find index")
+		GrootWASM.statusUpdate("> can't find index")
 		return nil
 	}
 
 	// read the index files
 	if err := GrootWASM.info.LoadFromBytes(GrootWASM.graphBuffer); err != nil {
-		GrootWASM.statusUpdate("failed to load GROOT graphs!")
+		GrootWASM.statusUpdate("> failed to load GROOT graphs!")
 		fmt.Println(err)
 		return nil
 	}
 	lshf := lshforest.NewLSHforest(GrootWASM.info.SketchSize, GrootWASM.info.JSthresh)
 	if err := lshf.LoadFromBytes(GrootWASM.indexBuffer); err != nil {
-		GrootWASM.statusUpdate("failed to load GROOT index!")
+		GrootWASM.statusUpdate("> failed to load GROOT index!")
 		fmt.Println(err)
 		return nil
 	}
 
-	// set the number of available processors to 1
-	GrootWASM.info.NumProc = 1
+	// TODO: play with this value - there is only one CPU available to WASM but
+	// this value actually just controls the number of go routines
+	GrootWASM.info.NumProc = 4
 	GrootWASM.info.AttachDB(lshf)
 	fmt.Println("input checked - GROOT happy to launch")
 
@@ -108,12 +109,12 @@ func (GrootWASM *GrootWASM) inputCheck(this js.Value, args []js.Value) interface
 	/////////////////////////////////////////////////
 
 	if GrootWASM.info == nil {
-		GrootWASM.statusUpdate("index didn't load!")
+		GrootWASM.statusUpdate("> index didn't load!")
 		return nil
 	}
 	GrootWASM.inputChecked = true
 	GrootWASM.iconUpdate("inputIcon")
-	GrootWASM.statusUpdate("input is set")
+	GrootWASM.statusUpdate("> input is set")
 	return nil
 }
 

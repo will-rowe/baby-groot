@@ -85,6 +85,6 @@ func (GrootWASM *GrootWASM) iconUpdate(icon string) {
 func (GrootWASM *GrootWASM) releaseCallbacks() {
 	GrootWASM.grootCb.Release()
 	GrootWASM.shutdownCb.Release()
-	GrootWASM.statusUpdate("GROOT has shut the app down!")
+	GrootWASM.statusUpdate("> GROOT has shut the app down!")
 	GrootWASM.iconUpdate("close")
 }

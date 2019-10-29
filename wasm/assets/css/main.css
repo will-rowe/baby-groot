@@ -1175,5 +1175,6 @@ button:hover span {
     height: 0.5em;
     background-color: var(--bg-colour);
     transform: translateX(-100%);
-    display: none;
+    opacity: 0;
+    display: block;
 }

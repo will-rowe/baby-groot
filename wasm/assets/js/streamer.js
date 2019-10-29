@@ -81,12 +81,13 @@ function FileSelectHandler(e) {
    FASTQ parsing (from: https://blog.luizirber.org/static/sourmash-wasm/app.js)
    =========================================================================== */
 let fileSize = 0
+let fileSizeMB = 0
 let fileName = ''
 let loadedFile = 0
 
 const resetProgress = () => {
     $progressBar.style.transform = 'translateX(-100%)'
-    $progressBar.style.display = 'none'
+    $progressBar.style.opacity = '0'
 }
 
 function isGzip(data) {
@@ -107,13 +108,19 @@ module.exports = function(fileArr) {
         var file = files[i]
         var reader = new FileReadStream(file)
         fileSize = file.size
+        fileSizeMB = (fileSize / 1048576).toFixed(2)
         fileName = file.name
-        console.log('loading: ', fileName)
-        $progressBar.style.display = 'block'
+        console.log('streaming: ', fileName)
+        $progressBar.style.opacity = '1.0'
+        statusUpdate('status', '> processed 0 Mb / ' + fileSizeMB + ' Mb')
 
         reader.reader.onprogress = data => {
             loadedFile += data.loaded
             let percent = 100 - (loadedFile / fileSize) * 100
+            if (percent % 5 == 0) {
+                statusUpdate('status', '> processed ' + (loadedFile / 1048576).toFixed(2) + ' Mb / ' + fileSizeMB + ' Mb')
+                console.log(percent + "%")
+            }
             $progressBar.style.transform = `translateX(${-percent}%)`
         }
     }
@@ -141,7 +148,7 @@ function getGraphs(graphURL) {
     fetch(graphURL)
         .then(function(response) {
             if (!response.ok) {
-                statusUpdate('status', 'could not download groot graphs!')
+                statusUpdate('status', '> could not download groot graphs!')
             }
             return response.blob()
         })
@@ -158,7 +165,7 @@ function getGraphs(graphURL) {
             ev.target.result.byteLength
         )
         if (raw_data === null) {
-            statusUpdate('status', 'could not download groot graphs!')
+            statusUpdate('status', '> could not download groot graphs!')
         } else {
             loadGraphs(graphURL, raw_data, reader.result.byteLength)
         }
@@ -171,7 +178,7 @@ function getLSHforest(lshfURL) {
     fetch(lshfURL)
         .then(function(response) {
             if (!response.ok) {
-                statusUpdate('status', 'could not download index!')
+                statusUpdate('status', '> could not download index!')
             }
             return response.blob()
         })
@@ -188,7 +195,7 @@ function getLSHforest(lshfURL) {
             ev.target.result.byteLength
         )
         if (raw_data === null) {
-            statusUpdate('status', 'could not download index!')
+            statusUpdate('status', '> could not download index!')
         } else {
             loadIndex(lshfURL, raw_data, reader.result.byteLength)
         }
@@ -228,12 +235,12 @@ const startApplication = () => {
                 getGraphs('assets/groot-files/dummy-db/groot.gg')
                 getLSHforest('assets/groot-files/dummy-db/groot.lshf')
                 $spinner.setAttribute('hidden', '')
-                statusUpdate('status', 'GROOT is ready!')
+                statusUpdate('status', '> GROOT is ready!')
             })
         } else {
             $spinner.setAttribute('hidden', '')
             console.log('WebAssembly is not supported in this browser')
-            statusUpdate('status', 'please get a more recent browser!')
+            statusUpdate('status', '> please get a more recent browser!')
         }
     }
 
