@@ -15,7 +15,6 @@ Browser support is restricted to Chrome, Firefox and Opera for now.
 * premature terminations aren't graceful
   * they just print to the console, no notifications for user
   * in some cases, the application doesn't shut down
-* doesn't handle GZIPed input yet
 * can't handle multiple read files
 
 
