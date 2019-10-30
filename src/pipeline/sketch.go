@@ -126,6 +126,7 @@ func (proc *WASMstreamer) Run() {
 
 			// ignore empty lines and send
 			line := bytes.TrimSpace(scanner.Bytes())
+
 			if len(line) > 0 {
 				proc.output <- append([]byte(nil), line...)
 			}
@@ -201,6 +202,9 @@ func (proc *FastqHandler) Run() {
 
 		// grab four lines and create a new FASTQread struct from them - perform some format checks and trim low quality bases
 		for line := range proc.input {
+
+			fmt.Println("line: ", string(line))
+
 			if l1 == nil {
 				l1 = line
 			} else if l2 == nil {
