@@ -84,6 +84,7 @@ type WASMstreamer struct {
 
 // NewWASMstreamer is the constructor
 func NewWASMstreamer() *WASMstreamer {
+	fmt.Println("made wasm streamer")
 	return &WASMstreamer{output: make(chan []byte, BUFFERSIZE)}
 }
 
@@ -94,6 +95,7 @@ func (proc *WASMstreamer) ConnectChan(inputChan chan []byte) {
 
 // Run is the method to run this process, which satisfies the pipeline interface
 func (proc *WASMstreamer) Run() {
+	fmt.Println("running wasm streamer")
 	defer close(proc.output)
 	leftOvers := []byte{}
 
@@ -153,6 +155,7 @@ type FastqHandler struct {
 
 // NewFastqHandler is the constructor
 func NewFastqHandler(info *Info) *FastqHandler {
+	fmt.Println("made fastq handler")
 	return &FastqHandler{info: info, output: make(chan *seqio.FASTQread, BUFFERSIZE)}
 }
 
@@ -168,6 +171,7 @@ func (proc *FastqHandler) Connect(previous *DataStreamer) {
 
 // Run is the method to run this process, which satisfies the pipeline interface
 func (proc *FastqHandler) Run() {
+	fmt.Println("running handler")
 	defer close(proc.output)
 	var l1, l2, l3, l4 []byte
 	if proc.info.Sketch.Fasta {
