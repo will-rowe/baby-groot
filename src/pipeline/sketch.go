@@ -110,6 +110,8 @@ func (proc *WASMstreamer) Run() {
 		chunk = append(leftOvers, chunk...)
 		leftOvers = []byte{}
 
+		fmt.Println("leftovers prepended: ", string(chunk))
+
 		// remove the final part of the chunk (as it could be a truncated line)
 		i := 0
 		for i = len(chunk) - 1; i > 0; i-- {
@@ -119,6 +121,8 @@ func (proc *WASMstreamer) Run() {
 			}
 		}
 		chunk = chunk[0:i]
+
+		fmt.Println("truncated chunk: ", string(chunk))
 
 		// convert bytes to reader
 		chunkBuffer := bytes.NewReader(chunk)
