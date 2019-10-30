@@ -99,6 +99,9 @@ func (proc *WASMstreamer) Run() {
 
 	// collect a chunk of fastq from the WASM JS function
 	for chunk := range proc.input {
+
+		fmt.Println("input to first proc: ", string(chunk))
+
 		if len(chunk) < 1 {
 			continue
 		}
