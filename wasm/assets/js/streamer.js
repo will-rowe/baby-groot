@@ -6,20 +6,17 @@
 var FileReadStream = require('filestream/read')
 var zlib = require('zlib')
 var peek = require('peek-stream')
-var through = require('through2')
+const { Transform } = require('stream')
 
 /* ===========================================================================
    HTML ID tags
    =========================================================================== */
-const $spinner = document.getElementById('spinner')
-const $inputChecker = document.getElementById('inputChecker')
 const $fastqUploader = document.getElementById('fastqUploader')
 const $filedrag = document.getElementById('filedrag')
 const $fastqFileName = document.getElementById('fastqFileName')
 const $fastqSelecter = document.getElementById('fastqSelecter')
 const $noFile = document.getElementById('noFile')
-
-const $progressBar = document.querySelector('#progress-bar')
+const $progressBar = document.getElementById('progress-bar')
 
 /* ===========================================================================
    FASTQ handling
@@ -47,7 +44,6 @@ function FileDragHover(e) {
 // FileSelectHandler processes any files that are added
 function FileSelectHandler(e) {
     FileDragHover(e)
-    resetProgress()
 
     // fetch FileList object
     var files = e.target.files || e.dataTransfer.files
@@ -75,29 +71,39 @@ function FileSelectHandler(e) {
 
     // pass the FASTQ file list to WASM
     getFiles(fastqList)
+    iconUpdate('inputIcon')
 }
 
 /* ===========================================================================
-   FASTQ parsing (from: https://blog.luizirber.org/static/sourmash-wasm/app.js)
+   FASTQ parsing (adapted from: https://blog.luizirber.org/static/sourmash-wasm/app.js)
    =========================================================================== */
-let fileSize = 0
-let fileSizeMB = 0
-let fileName = ''
-let loadedFile = 0
-
 const resetProgress = () => {
     $progressBar.style.transform = 'translateX(-100%)'
     $progressBar.style.opacity = '0'
 }
 
+function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + " Bytes";
+    else if (bytes < 1048576) return (bytes / 1024).toFixed(2) + " KB";
+    else if (bytes < 1073741824) return (bytes / 1048576).toFixed(2) + " MB";
+    else return (bytes / 1073741824).toFixed(2) + " GB";
+}
+
+const chunker = new Transform({
+    transform(chunk, encoding, callback) {
+        this.push(chunk)
+        callback()
+    }
+})
+
 function isGzip(data) {
     return data[0] === 31 && data[1] === 139
 }
 
-function GzipParser() {
+function newParser() {
     return peek(function(data, swap) {
         if (isGzip(data)) return swap(null, new zlib.Unzip())
-        else return swap(null, through())
+        else return swap(null, chunker)
     })
 }
 
@@ -105,38 +111,61 @@ function GzipParser() {
 module.exports = function(fileArr) {
     var files = fileArr[0]
     for (var i = 0; i < files.length; i++) {
+
+        // set up the data stream and check errors
         var file = files[i]
-        var reader = new FileReadStream(file)
-        fileSize = file.size
-        fileSizeMB = (fileSize / 1048576).toFixed(2)
-        fileName = file.name
-        console.log('streaming: ', fileName)
-        $progressBar.style.opacity = '1.0'
-        statusUpdate('status', '> processed 0 Mb / ' + fileSizeMB + ' Mb')
-
-        reader.reader.onprogress = data => {
-            loadedFile += data.loaded
-            let percent = 100 - (loadedFile / fileSize) * 100
-            if (percent % 5 == 0) {
-                statusUpdate('status', '> processed ' + (loadedFile / 1048576).toFixed(2) + ' Mb / ' + fileSizeMB + ' Mb')
-                console.log(percent + "%")
-            }
-            $progressBar.style.transform = `translateX(${-percent}%)`
+        var stream = new FileReadStream(file)
+        stream.reader.onerror = (e) => {
+            console.error(e)
         }
+
+        // set up the vars 
+        var fileSize = formatBytes(stream._size)
+        var loadedFile = 0
+        var lastUpdate = 0
+
+        // get the progress bar ready
+        resetProgress()
+        $progressBar.style.opacity = '1.0'
+        console.log('streaming: ', file.name)
+        statusUpdate('status', '> processed 0 / ' + fileSize)
+
+        // monitor progress
+        stream.reader.onprogress = data => {
+            if (data.loaded == data.total && loadedFile < stream._size) {
+                loadedFile += data.loaded
+                var percentLoaded = Math.round((loadedFile / file.size) * 100);
+                $progressBar.style.transform = `translateX(${-(100 - percentLoaded)}%)`
+                if (percentLoaded % 2 == 0 && percentLoaded != lastUpdate) {
+                    statusUpdate(
+                        'status',
+                        '> processed ' +
+                        formatBytes(loadedFile) +
+                        ' / ' +
+                        fileSize
+                    )
+                    lastUpdate = percentLoaded
+                }
+            }
+        }
+
+        // set up the parser
+        var parser = newParser()
+        parser
+            .on('data', function(data) {
+                // munchFASTQ is linked to WASM and used to send the data to Go
+                //console.log(data.toString())
+                munchFASTQ(data, data.length)
+            })
+            .on('end', function() {
+                // closeFASTQchan is a close down signal, sent to WASM once all the FASTQ data has been sent
+                closeFASTQchan()
+                resetProgress()
+            })
+
+        // pipe the data stream into the parser
+        stream.pipe(parser)
     }
-
-    var compressedparser = new GzipParser()
-    compressedparser
-        .on('data', function(data) {
-            // munchFASTQ is linked to WASM and used to send the data to Go
-            munchFASTQ(data, data.length)
-        })
-        .on('end', function(data) {
-            // closeFASTQchan is a close down signal, sent to WASM once all the FASTQ data has been sent
-            closeFASTQchan()
-        })
-
-    reader.pipe(compressedparser)
 }
 
 /* ===========================================================================
@@ -234,24 +263,15 @@ const startApplication = () => {
                 initInputFiles()
                 getGraphs('assets/groot-files/dummy-db/groot.gg')
                 getLSHforest('assets/groot-files/dummy-db/groot.lshf')
-                $spinner.setAttribute('hidden', '')
+                toggleDiv('spinner')
                 statusUpdate('status', '> GROOT is ready!')
             })
         } else {
-            $spinner.setAttribute('hidden', '')
+            toggleDiv('spinner')
             console.log('WebAssembly is not supported in this browser')
             statusUpdate('status', '> please get a more recent browser!')
         }
     }
-
-    // listen out for the input checker
-    $inputChecker.addEventListener('click', function() {
-        toggleDiv('inputModal')
-        $spinner.removeAttribute('hidden')
-        setTimeout(function() {
-            inputCheck()
-        }, 10)
-    })
 
     // listen out for index selection -- TODO: I don't think this isn't listening to the right selecter
     // document.getElementById("indexSelecter").addEventListener('click', function() {

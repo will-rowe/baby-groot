@@ -84,7 +84,6 @@ type WASMstreamer struct {
 
 // NewWASMstreamer is the constructor
 func NewWASMstreamer() *WASMstreamer {
-	fmt.Println("made wasm streamer")
 	return &WASMstreamer{output: make(chan []byte, BUFFERSIZE)}
 }
 
@@ -95,36 +94,39 @@ func (proc *WASMstreamer) ConnectChan(inputChan chan []byte) {
 
 // Run is the method to run this process, which satisfies the pipeline interface
 func (proc *WASMstreamer) Run() {
-	fmt.Println("running wasm streamer")
 	defer close(proc.output)
 	leftOvers := []byte{}
 
 	// collect a chunk of fastq from the WASM JS function
 	for chunk := range proc.input {
 
-		fmt.Println("input to first proc: ", string(chunk))
-
-		if len(chunk) < 1 {
+		// ignore any empty receives
+		if len(chunk) == 0 {
 			continue
 		}
 
-		// add any leftovers to the start of this chunk and clear the leftovers
-		chunk = append(leftOvers, chunk...)
-		leftOvers = []byte{}
-
-		fmt.Println("leftovers prepended: ", string(chunk))
-
-		// remove the final part of the chunk (as it could be a truncated line)
-		i := 0
-		for i = len(chunk) - 1; i > 0; i-- {
-			leftOvers = append([]byte{chunk[i]}, leftOvers...)
-			if chunk[i] == 0x0A {
-				break
-			}
+		// add any leftovers from the last chunk to the start of this chunk
+		if len(leftOvers) != 0 {
+			chunk = append(leftOvers, chunk...)
+			leftOvers = nil
 		}
-		chunk = chunk[0:i]
 
-		fmt.Println("truncated chunk: ", string(chunk))
+		// check the current chunk to see if it ends with a truncated line
+		// if it does, find the final line break and create subchunk
+		i := len(chunk) - 1
+		if chunk[i] != 0x0A {
+			for i > 0 {
+				i--
+				if chunk[i] == 0x0A {
+					break
+				}
+			}
+			leftOvers = chunk[i:]
+			if i == 0 {
+				continue
+			}
+			chunk = chunk[0:i]
+		}
 
 		// convert bytes to reader
 		chunkBuffer := bytes.NewReader(chunk)
@@ -143,6 +145,7 @@ func (proc *WASMstreamer) Run() {
 		if scanner.Err() != nil {
 			log.Fatal(scanner.Err())
 		}
+
 	}
 }
 
@@ -155,7 +158,6 @@ type FastqHandler struct {
 
 // NewFastqHandler is the constructor
 func NewFastqHandler(info *Info) *FastqHandler {
-	fmt.Println("made fastq handler")
 	return &FastqHandler{info: info, output: make(chan *seqio.FASTQread, BUFFERSIZE)}
 }
 
@@ -171,7 +173,6 @@ func (proc *FastqHandler) Connect(previous *DataStreamer) {
 
 // Run is the method to run this process, which satisfies the pipeline interface
 func (proc *FastqHandler) Run() {
-	fmt.Println("running handler")
 	defer close(proc.output)
 	var l1, l2, l3, l4 []byte
 	if proc.info.Sketch.Fasta {
@@ -213,9 +214,6 @@ func (proc *FastqHandler) Run() {
 
 		// grab four lines and create a new FASTQread struct from them - perform some format checks and trim low quality bases
 		for line := range proc.input {
-
-			fmt.Println("line: ", string(line))
-
 			if l1 == nil {
 				l1 = line
 			} else if l2 == nil {

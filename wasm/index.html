@@ -14,8 +14,8 @@
     <div id="spinner"></div>
     <div class="overlay">
         <object id="honeycomb" type="image/svg+xml" data="assets/images/overlay.svg">
-      <img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="honeycomb">
-    </object>
+            <img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="honeycomb">
+        </object>
     </div>
 
     <div id="main">
@@ -25,8 +25,8 @@
 
             <!-- Logo -->
             <object id="logo-animated" type="image/svg+xml" data="assets/images/baby-groot.svg">
-        <img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="logo">
-      </object>
+                <img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="logo">
+            </object>
 
             <!-- Status bar -->
             <div id="status">
@@ -71,13 +71,12 @@
                     <!-- INDEX -->
                     <p>2. select an index:</p>
                     <select class="select-css" id="indexSelecter">
-            <option value="groot-files/groot.index" selected>ARG-ANNOT (default)</option>
-            <option value="index 2" disabled>index 2</option>
-            <option value="index3" disabled>index 3</option>
-          </select>
-                    <p>3. check input and load (takes a few seconds):</p>
+                        <option value="groot-files/groot.index" selected>ARG-ANNOT (default)</option>
+                        <option value="index 2" disabled>index 2</option>
+                        <option value="index3" disabled>index 3</option>
+                    </select>
                     <br />
-                    <button id="inputChecker"><span>confirm!</span></button>
+                    <button id="closeInputModal"><span>done</span></button>
                     <br />
 
                 </div>
@@ -97,8 +96,9 @@
                             <input type="range" min="-1" max="1" value="0" step="0.1" id="param2" name="param2slider" oninput="param2value.value = param2.value">
                         </li>
                     </ul>
-                    <button onclick="iconUpdate('paramIcon'); statusUpdate('status', '> parameters are set')"><span>set these
-              parameters!</span></button>
+                    <button onclick="iconUpdate('paramIcon'); statusUpdate('status', '> parameters are set')"><span>set
+                            these
+                            parameters!</span></button>
                 </div>
             </div>
 
@@ -178,9 +178,10 @@
                 }
             }
         }
+        document.getElementById('closeInputModal').addEventListener('click', function() {
+            document.getElementById('inputModal').style.display = "none";
+        })
     </script>
-
-
 
 </body>
 

@@ -1,13 +1,13 @@
 /* ===========================================================================
    Utilities for updating the vis
    =========================================================================== */
-// toggleDiv is a helper function to show/hide a div
+// toggleDiv show/hides a div
 function toggleDiv(id) {
     var el = document.getElementById(id)
-    if (el.style.display == 'block') {
-        el.style.display = 'none'
+    if (el.getAttribute('hidden') == true) {
+        el.setAttribute('hidden', false)
     } else {
-        el.style.display = 'block'
+        el.setAttribute('hidden', true)
     }
 }
 
@@ -18,7 +18,7 @@ function show(id) {
     el.classList.remove('hide')
 }
 
-// hide will fade out an element CSS
+// hide will fade out an element using CSS
 function hide(id) {
     var el = document.getElementById(id)
     el.classList.add('hide')
@@ -42,7 +42,7 @@ function iconUpdate(id) {
     show(id)
 }
 
-// startRecord starts the apps spinner
+// startRecord starts the record spinning
 function startRecord() {
     hide('startIcon')
     var el = document.getElementById('startIcon')
@@ -52,7 +52,7 @@ function startRecord() {
     show('startIcon')
 }
 
-// stopRecord stops the apps spinner
+// stopRecord stops the record spinning
 function stopRecord() {
     hide('startIcon')
     var el = document.getElementById('startIcon')
@@ -94,4 +94,15 @@ function addResults(ref, abun) {
 function updateTimer(elapsedTime) {
     var el = document.getElementById('runTime')
     el.innerHTML = el.innerHTML + "<sub style='color:black;'>time elapsed: " + elapsedTime + '</sub>';
+}
+
+// showResults
+function showResults() {
+    var el = document.getElementById('resultsModal')
+    el.style.display = "block"
+}
+// showResults
+function showResults() {
+    var el = document.getElementById('resultsModal')
+    el.style.display = 'block'
 }

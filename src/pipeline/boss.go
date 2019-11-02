@@ -111,15 +111,15 @@ func mapReads(runtimeInfo *Info, inputChan chan []byte) (*theBoss, error) {
 
 					// send the window on for graph augmentation
 					graphMinion.inputChannel <- graphWindow
+				}
 
-					// update counts
-					receivedReads++
-					if mapped > 0 {
-						mappedCount++
-					}
-					if mapped > 1 {
-						multimappedCount++
-					}
+				// update counts
+				receivedReads++
+				if mapped > 0 {
+					mappedCount++
+				}
+				if mapped > 1 {
+					multimappedCount++
 				}
 			}
 		}(i)

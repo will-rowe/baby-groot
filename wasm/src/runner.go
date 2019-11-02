@@ -7,24 +7,98 @@ import (
 	"syscall/js"
 	"time"
 
+	"github.com/will-rowe/baby-groot/src/lshforest"
 	"github.com/will-rowe/baby-groot/src/pipeline"
 )
+
+// inputCheck is the callback to check the input is correct
+func (GrootWASM *GrootWASM) inputCheck() interface{} {
+	fmt.Println("checking input...")
+	GrootWASM.toggleDiv("spinner")
+
+	// check the input first
+	if len(GrootWASM.fastqFiles) == 0 {
+		GrootWASM.statusUpdate("> no FASTQ files selected!")
+		return nil
+	}
+	if len(GrootWASM.graphBuffer) == 0 {
+		GrootWASM.statusUpdate("> can't find graphs")
+		return nil
+	}
+	if len(GrootWASM.indexBuffer) == 0 {
+		GrootWASM.statusUpdate("> can't find index")
+		return nil
+	}
+
+	// read the index files
+	if err := GrootWASM.info.LoadFromBytes(GrootWASM.graphBuffer); err != nil {
+		GrootWASM.statusUpdate("> failed to load GROOT graphs!")
+		fmt.Println(err)
+		return nil
+	}
+	lshf := lshforest.NewLSHforest(GrootWASM.info.SketchSize, GrootWASM.info.JSthresh)
+	if err := lshf.LoadFromBytes(GrootWASM.indexBuffer); err != nil {
+		GrootWASM.statusUpdate("> failed to load GROOT index!")
+		fmt.Println(err)
+		return nil
+	}
+
+	// TODO: play with this value - there is only one CPU available to WASM but
+	// this value actually just controls the number of go routines
+	GrootWASM.info.NumProc = 4
+	GrootWASM.info.AttachDB(lshf)
+
+	// TODO: check the parameters
+
+	/////////////////////////////////////////////////
+	// TODO: have these parameters set by the user
+	GrootWASM.info.Sketch = pipeline.SketchCmd{
+		MinKmerCoverage: 1.0,
+		BloomFilter:     false,
+		Fasta:           false,
+	}
+	GrootWASM.info.Haplotype = pipeline.HaploCmd{
+		Cutoff:        0.001,
+		MaxIterations: 10000,
+		MinIterations: 50,
+		HaploDir:      ".",
+	}
+	/////////////////////////////////////////////////
+
+	// update the page
+	GrootWASM.toggleDiv("spinner")
+	if GrootWASM.info == nil {
+		GrootWASM.statusUpdate("> index didn't load!")
+		return nil
+	}
+	GrootWASM.iconUpdate("inputIcon")
+	GrootWASM.iconUpdate("paramIcon")
+	GrootWASM.statusUpdate("> input is set")
+	fmt.Println("I AM GROOT")
+	GrootWASM.inputChecked = true
+	return nil
+}
 
 // setupGrootCb sets up the GROOT callback and runs GROOT when everything is set
 func (GrootWASM *GrootWASM) setupGrootCb() {
 	GrootWASM.grootCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		go func() {
-			if !GrootWASM.inputChecked {
-				GrootWASM.statusUpdate("> problem with input!")
-				return
-			}
-
 			// stop GROOT?
 			if GrootWASM.running == true {
 				GrootWASM.running = false
 				GrootWASM.statusUpdate("> stopped GROOT!")
 				js.Global().Call("stopRecord")
 				js.Global().Call("stopLogo")
+				js.Global().Get("location").
+					Call("reload")
+				return
+			}
+
+			// check the input
+			GrootWASM.statusUpdate("> checking input...")
+			GrootWASM.inputCheck()
+			if !GrootWASM.inputChecked {
+				GrootWASM.statusUpdate("> problem with input!")
 				return
 			}
 
@@ -105,7 +179,7 @@ func (GrootWASM *GrootWASM) setupGrootCb() {
 				mins := time.Since(startTime).Minutes()
 				timer := fmt.Sprintf("%.0fmins %.0fsecs", mins, secs)
 				js.Global().Call("updateTimer", timer)
-				js.Global().Call("toggleDiv", "resultsModal")
+				js.Global().Call("showResults")
 			}
 		}()
 		return nil

@@ -168,12 +168,16 @@ func (proc *HaplotypeParser) Run() {
 		g.GrootVersion = version.VERSION
 		keptGraphs[g.GraphID] = g
 	}
+	proc.info.Store = keptGraphs
+	proc.output = keptPaths
+	if len(keptGraphs) == 0 {
+		return
+	}
 	log.Printf("summarising...")
 	log.Printf("\tmean number of EM iterations: %d\n", meanEMiterations/len(keptGraphs))
 	log.Printf("\tnumber of graphs with viable paths: %d\n", len(keptGraphs))
 	log.Printf("\tnumber of called alleles: %d\n", len(keptPaths))
-	proc.info.Store = keptGraphs
-	proc.output = keptPaths
+
 }
 
 /*

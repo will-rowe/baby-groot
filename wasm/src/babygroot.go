@@ -45,7 +45,6 @@ func (GrootWASM *GrootWASM) Start() {
 	js.Global().Set("munchFASTQ", js.FuncOf(GrootWASM.munchFASTQ))
 	js.Global().Set("loadGraphs", js.FuncOf(GrootWASM.loadGraphs))
 	js.Global().Set("loadIndex", js.FuncOf(GrootWASM.loadIndex))
-	js.Global().Set("inputCheck", js.FuncOf(GrootWASM.inputCheck))
 	js.Global().Set("closeFASTQchan", js.FuncOf(GrootWASM.closeFASTQchan))
 
 	// set up the callbacks for start/stopping the GROOT app
@@ -79,6 +78,11 @@ func (GrootWASM *GrootWASM) statusUpdate(msg string) {
 // iconUpdate calls the iconUpdate javascript function, which changes an icon to a tick
 func (GrootWASM *GrootWASM) iconUpdate(icon string) {
 	js.Global().Call("iconUpdate", icon)
+}
+
+// toggleDiv calls the toggleDiv javascript function, which shows/hides a div
+func (GrootWASM *GrootWASM) toggleDiv(div string) {
+	js.Global().Call("toggleDiv", div)
 }
 
 // releaseCallbacks
