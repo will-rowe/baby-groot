@@ -51,7 +51,7 @@ func (graphMinion *graphMinion) start() {
 
 				// augment the graph using the mapping data
 				// project the sketch of this read onto the graph and increment the k-mer count for each node in the projection's subpaths
-				misc.ErrorCheck(graphMinion.graph.IncrementSubPath(mappingData.SubPath, mappingData.OffSet, mappingData.Freq))
+				misc.ErrorCheck(graphMinion.graph.IncrementSubPath(mappingData.SubPath, mappingData.Freq))
 
 				// work done
 				graphMinion.Unlock()

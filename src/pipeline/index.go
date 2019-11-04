@@ -156,4 +156,5 @@ func (proc *SketchIndexer) Run() {
 
 	// add the index to the pipeline info
 	proc.info.AttachDB(index)
+
 }
