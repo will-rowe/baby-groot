@@ -1,10 +1,10 @@
 package main
 
 import (
-	bg "github.com/will-rowe/baby-groot/wasm/src"
+	babygroot "github.com/will-rowe/baby-groot/wasp/src"
 )
 
 func main() {
-	bg := bg.New()
+	bg := babygroot.New()
 	bg.Start()
 }

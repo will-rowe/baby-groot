@@ -25,12 +25,3 @@ To browserify the js, build the WASM binary and run the development server:
 ``` bash
 make dev
 ```
-
-## Commands used to build index
-
-```
-cd assets/groot-files
-
-go run ../../../main.go index -m . -i . -k 31 -s 100 -j 1.0 -w 100
-
-```

@@ -1,4 +1,5 @@
 BINARY='baby-groot.wasm'
+INDEX='assets/groot-files/index'
 
 all: build index
 
@@ -9,9 +10,13 @@ build:
 	GOOS=js GOARCH=wasm CGO_ENABLED=1 go build -o ${BINARY} -ldflags "-s -w" ./cmd
 
 index:
-	go build ../main.go
-	./baby-groot get -d arg-annot
-	
+	go run ../main.go get -d arg-annot
+	go run ../main.go index -m arg-annot* -i ${INDEX} -k 31 -s 31 -w 100
+	rm -r arg-annot*
 
 server:
 	go run dev-server.go
+
+clean:
+	rm ${BINARY}
+	rm -r ${INDEX}

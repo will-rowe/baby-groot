@@ -261,8 +261,10 @@ const startApplication = () => {
             ).then(result => {
                 go.run(result.instance)
                 initInputFiles()
+                    //getGraphs('assets/groot-files/index/groot.gg')
+                    //getLSHforest('assets/groot-files/index/groot.lshe')
                 getGraphs('assets/groot-files/dummy-db/groot.gg')
-                getLSHforest('assets/groot-files/dummy-db/groot.lshf')
+                getLSHforest('assets/groot-files/dummy-db/groot.lshe')
                 toggleDiv('spinner')
                 statusUpdate('status', '> GROOT is ready!')
             })

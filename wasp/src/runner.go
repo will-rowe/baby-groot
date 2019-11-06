@@ -7,7 +7,7 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/will-rowe/baby-groot/src/lshforest"
+	"github.com/will-rowe/baby-groot/src/graph"
 	"github.com/will-rowe/baby-groot/src/pipeline"
 )
 
@@ -36,8 +36,8 @@ func (GrootWASM *GrootWASM) inputCheck() interface{} {
 		fmt.Println(err)
 		return nil
 	}
-	lshf := lshforest.NewLSHforest(GrootWASM.info.SketchSize, GrootWASM.info.JSthresh)
-	if err := lshf.LoadFromBytes(GrootWASM.indexBuffer); err != nil {
+	lshe := &graph.ContainmentIndex{}
+	if err := lshe.LoadFromBytes(GrootWASM.indexBuffer); err != nil {
 		GrootWASM.statusUpdate("> failed to load GROOT index!")
 		fmt.Println(err)
 		return nil
@@ -46,19 +46,20 @@ func (GrootWASM *GrootWASM) inputCheck() interface{} {
 	// TODO: play with this value - there is only one CPU available to WASM but
 	// this value actually just controls the number of go routines
 	GrootWASM.info.NumProc = 4
-	GrootWASM.info.AttachDB(lshf)
+	GrootWASM.info.AttachDB(lshe)
 
 	// TODO: check the parameters
+	GrootWASM.info.ContainmentThreshold = 1.0
 
 	/////////////////////////////////////////////////
 	// TODO: have these parameters set by the user
 	GrootWASM.info.Sketch = pipeline.SketchCmd{
-		MinKmerCoverage: 1.0,
+		MinKmerCoverage: 10,
 		BloomFilter:     false,
 		Fasta:           false,
 	}
 	GrootWASM.info.Haplotype = pipeline.HaploCmd{
-		Cutoff:        0.001,
+		Cutoff:        1.0,
 		MaxIterations: 10000,
 		MinIterations: 50,
 		HaploDir:      ".",
