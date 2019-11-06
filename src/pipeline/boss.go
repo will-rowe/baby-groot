@@ -10,30 +10,12 @@ import (
 
 // theBoss is used to orchestrate the minions
 type theBoss struct {
-	info                *Info                   // the runtime info for the pipeline
-	graphMinionRegister map[uint32]*graphMinion // used to keep a record of the graph minions
-	reads               chan []byte             // the boss uses this channel to receive data from the main sketching pipeline
-	receivedReadCount   int                     // the number of reads the boss is sent during it's lifetime
-	mappedCount         int                     // the total number of reads that were successful mapped to at least one graph
-	multimappedCount    int                     // the total number of reads that had multiple mappings
-}
-
-// launchGraphMinions is a method to set up the graph minions which are used to augment the graphs with mapping results
-func (theBoss *theBoss) launchGraphMinions() {
-
-	// one minion per graph in the index
-	theBoss.graphMinionRegister = make(map[uint32]*graphMinion, len(theBoss.info.Store))
-	for graphID, graph := range theBoss.info.Store {
-
-		// create the minion
-		minion := newGraphMinion(graphID, theBoss.info.KmerSize, graph)
-
-		// start the minion
-		minion.start()
-
-		// register it
-		theBoss.graphMinionRegister[graphID] = minion
-	}
+	info                *Info          // the runtime info for the pipeline
+	graphMinionRegister []*graphMinion // used to keep a record of the graph minions
+	reads               chan []byte    // the boss uses this channel to receive data from the main sketching pipeline
+	receivedReadCount   int            // the number of reads the boss is sent during it's lifetime
+	mappedCount         int            // the total number of reads that were successful mapped to at least one graph
+	multimappedCount    int            // the total number of reads that had multiple mappings
 }
 
 // mapReads is a function to start off the minions to map reads, the minions to augement graphs, and to return their boss
@@ -48,10 +30,19 @@ func mapReads(runtimeInfo *Info, inputChan chan []byte) (*theBoss, error) {
 		multimappedCount:  0,
 	}
 
-	// launch the graph minions
-	boss.launchGraphMinions()
+	// launch the graph minions (one minion per graph in the index)
+	var graphWG sync.WaitGroup
+	graphWG.Add(len(boss.info.Store))
+	boss.graphMinionRegister = make([]*graphMinion, len(boss.info.Store))
+	for graphID, graph := range boss.info.Store {
 
-	// launch the sketching minions
+		// create, start and register the graph minion
+		minion := newGraphMinion(graphID, graph, &graphWG)
+		minion.start()
+		boss.graphMinionRegister[graphID] = minion
+	}
+
+	// launch the sketching minions (one per CPU)
 	var wg sync.WaitGroup
 	wg.Add(runtimeInfo.NumProc)
 	countChan := make(chan [3]int, runtimeInfo.NumProc)
@@ -76,49 +67,41 @@ func mapReads(runtimeInfo *Info, inputChan chan []byte) (*theBoss, error) {
 					return
 				}
 
-				// get sketch for read TODO: I'm ignoring the bloom filter for now
+				// get sketch for read
 				readSketch, err := minhash.GetReadSketch(read, uint(boss.info.KmerSize), uint(boss.info.SketchSize), false)
 				misc.ErrorCheck(err)
 
 				// get the number of k-mers in the sequence
-				kmerCount := float64(len(read)) - float64(boss.info.KmerSize) + 1
+				readLength := len(read)
+				kmerCount := float64(readLength-boss.info.KmerSize) + 1
 
-				// query the LSH forest
-				mapped := 0
-				for _, hit := range boss.info.db.Query(readSketch) {
-					mapped++
-
-					// convert the stringified db match for this mapping to the constituent parts (graph, node, offset)
-					mappingInfo, err := boss.info.db.GetKey(hit)
-					if err != nil {
-						panic(err)
-					}
+				// query the LSH ensemble
+				hits, err := boss.info.db.Query(readSketch, readLength+boss.info.KmerSize-1)
+				if err != nil {
+					panic(err)
+				}
+				for _, hit := range hits {
 
 					// make a copy of this graphWindow
 					graphWindow := &lshforest.Key{
-						GraphID: mappingInfo.GraphID,
-						Node:    mappingInfo.Node,
-						OffSet:  mappingInfo.OffSet,
-						SubPath: mappingInfo.SubPath, // don't need to deep copy this as we don't edit it
-						Freq:    kmerCount,           // add the mapping frequency
-					}
-
-					// look up the graph minion responsible for this graph window
-					graphMinion, ok := boss.graphMinionRegister[graphWindow.GraphID]
-					if !ok {
-						panic("can't find a graph minion")
+						GraphID:        hit.GraphID,
+						Node:           hit.Node,
+						OffSet:         hit.OffSet,
+						ContainedNodes: hit.ContainedNodes, // don't need to deep copy this as we don't edit it
+						Freq:           kmerCount,          // add the k-mer count of the read in this window
 					}
 
 					// send the window on for graph augmentation
-					graphMinion.inputChannel <- graphWindow
+					boss.graphMinionRegister[hit.GraphID].inputChannel <- graphWindow
+
 				}
 
 				// update counts
 				receivedReads++
-				if mapped > 0 {
+				if len(hits) > 0 {
 					mappedCount++
 				}
-				if mapped > 1 {
+				if len(hits) > 1 {
 					multimappedCount++
 				}
 			}
@@ -137,8 +120,9 @@ func mapReads(runtimeInfo *Info, inputChan chan []byte) (*theBoss, error) {
 	}
 
 	// close down the graph minions
-	for _, minion := range boss.graphMinionRegister {
-		minion.finish()
+	for _, graphMinion := range boss.graphMinionRegister {
+		close(graphMinion.inputChannel)
 	}
+	graphWG.Wait()
 	return boss, nil
 }

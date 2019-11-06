@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/will-rowe/baby-groot/src/graph"
-	"github.com/will-rowe/baby-groot/src/lshforest"
 )
 
 // Info stores the runtime information
@@ -18,16 +17,17 @@ type Info struct {
 	Profiling  bool
 	KmerSize   int
 	SketchSize int
-	KMVsketch  bool
-	JSthresh   float64
 	WindowSize int
-	IndexDir   string
-	Store      graph.Store
+	// TODO: expose these params
+	NumPart  int
+	MaxK     int
+	IndexDir string
+	Store    graph.Store
 
 	// the following fields are not written to disk
 	Sketch    SketchCmd
 	Haplotype HaploCmd
-	db        lshforest.IndexWrapper
+	db        *graph.ContainmentIndex
 }
 
 // SketchCmd stores the runtime info for the sketch command
@@ -46,17 +46,12 @@ type HaploCmd struct {
 	HaploDir      string
 }
 
-// AttachDB is a method to attach a LSH Forest index to the runtime
-func (Info *Info) AttachDB(db *lshforest.IndexWrapper) {
-	Info.db = *db
+// AttachDB is a method to attach a LSH Ensemble index to the runtime
+func (Info *Info) AttachDB(db *graph.ContainmentIndex) {
+	Info.db = db
 }
 
-// GetDBinfo is a method to return the number of hash functions and buckets used by the current index
-func (Info *Info) GetDBinfo() (int32, int32) {
-	return Info.db.Settings()
-}
-
-// SaveDB is a method to write an LSH Forest index to disk
+// SaveDB is a method to write an LSH Ensemble index to disk
 func (Info *Info) SaveDB(filePath string) error {
 	return Info.db.Dump(filePath)
 }

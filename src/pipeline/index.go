@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/biogo/biogo/seq/multi"
+	"github.com/ekzhu/lshensemble"
 	"github.com/will-rowe/baby-groot/src/graph"
 	"github.com/will-rowe/baby-groot/src/lshforest"
 	"github.com/will-rowe/baby-groot/src/misc"
@@ -91,7 +92,7 @@ func (proc *GraphSketcher) Run() {
 		go func(grootGraph *graph.GrootGraph) {
 
 			// create sketch for each window in the graph
-			for window := range grootGraph.WindowGraph(proc.info.WindowSize, proc.info.KmerSize, proc.info.SketchSize, proc.info.KMVsketch) {
+			for window := range grootGraph.WindowGraph(proc.info.WindowSize, proc.info.KmerSize, proc.info.SketchSize) {
 
 				// send the windows for this graph onto the next process
 				proc.output <- window
@@ -140,21 +141,27 @@ func (proc *SketchIndexer) Connect(previous *GraphSketcher) {
 // Run is the method to run this process, which satisfies the pipeline interface
 func (proc *SketchIndexer) Run() {
 
-	// get the index ready
-	index := lshforest.NewLSHforest(proc.info.SketchSize, proc.info.JSthresh)
+	// create a tmp map of domain records and the key lookup
+	domainRecMap := make(map[int]*lshensemble.DomainRecord)
+	keyLookup := make(map[string]*lshforest.Key) // links sketches to the graph windows
+
+	// collect the sketches and store as domains
 	sketchCount := 0
 	for window := range proc.input {
+
+		// create a domain record for this sketch
+		key := fmt.Sprintf("g%dn%do%dp%d", window.GraphID, window.Node, window.OffSet, len(window.Ref))
+		domainRecMap[sketchCount] = &lshensemble.DomainRecord{
+			Key:       key,
+			Size:      proc.info.WindowSize + proc.info.KmerSize - 1,
+			Signature: window.Sketch,
+		}
+		keyLookup[key] = window
 		sketchCount++
-
-		// add the sketch to the lshforest index
-		misc.ErrorCheck(index.Add(window))
 	}
-	numHF, numBucks := index.Settings()
-	log.Printf("\tnumber of LSH Forest buckets: %d\n", numBucks)
-	log.Printf("\tnumber of hash functions per bucket: %d\n", numHF)
-	log.Printf("\tnumber of sketches added to the LSH Forest index: %d\n", sketchCount)
 
-	// add the index to the pipeline info
+	// store the domain records
+	index := graph.PrepareIndex(domainRecMap, keyLookup, proc.info.NumPart, proc.info.MaxK, proc.info.WindowSize+proc.info.KmerSize-1, proc.info.SketchSize)
 	proc.info.AttachDB(index)
-
+	log.Printf("\tnumber of sketches added to the LSH Ensemble index: %d\n", sketchCount)
 }

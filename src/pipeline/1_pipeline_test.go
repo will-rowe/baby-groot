@@ -30,13 +30,13 @@ var gfaList = []string{"test-data/tmp/groot-graph-0.gfa"}
 TEST PARAMETERS
 */
 var testParameters = &Info{
-	NumProc:    2,
+	NumProc:    1,
 	Version:    version.VERSION,
 	KmerSize:   31,
-	SketchSize: 42,
-	KMVsketch:  false,
-	JSthresh:   0.99,
+	SketchSize: 100,
 	WindowSize: 100,
+	NumPart:    8,
+	MaxK:       4,
 	IndexDir:   "test-data/tmp",
 	Sketch: SketchCmd{
 		MinKmerCoverage: 1,
@@ -44,7 +44,7 @@ var testParameters = &Info{
 		Fasta:           false,
 	},
 	Haplotype: HaploCmd{
-		Cutoff:        0.05,
+		Cutoff:        1.0,
 		MaxIterations: 10000,
 		MinIterations: 50,
 		HaploDir:      "test-data/tmp",
