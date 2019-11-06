@@ -12,17 +12,17 @@ import (
 
 // Info stores the runtime information
 type Info struct {
-	Version    string
-	NumProc    int
-	Profiling  bool
-	KmerSize   int
-	SketchSize int
-	WindowSize int
-	// TODO: expose these params
-	NumPart  int
-	MaxK     int
-	IndexDir string
-	Store    graph.Store
+	Version              string
+	NumProc              int
+	Profiling            bool
+	KmerSize             int
+	SketchSize           int
+	WindowSize           int
+	NumPart              int
+	MaxK                 int
+	ContainmentThreshold float64
+	IndexDir             string
+	Store                graph.Store
 
 	// the following fields are not written to disk
 	Sketch    SketchCmd

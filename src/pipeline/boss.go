@@ -76,7 +76,7 @@ func mapReads(runtimeInfo *Info, inputChan chan []byte) (*theBoss, error) {
 				kmerCount := float64(readLength-boss.info.KmerSize) + 1
 
 				// query the LSH ensemble
-				hits, err := boss.info.db.Query(readSketch, readLength+boss.info.KmerSize-1)
+				hits, err := boss.info.db.Query(readSketch, readLength+boss.info.KmerSize-1, boss.info.ContainmentThreshold)
 				if err != nil {
 					panic(err)
 				}
