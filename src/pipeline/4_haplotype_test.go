@@ -66,7 +66,7 @@ func TestHaplotyping(t *testing.T) {
 	if err := os.Remove("test-data/tmp/groot.gg"); err != nil {
 		t.Fatal("indexing did not create graph file: ", err)
 	}
-	if err := os.Remove("test-data/tmp/groot.lshf"); err != nil {
+	if err := os.Remove("test-data/tmp/groot.lshe"); err != nil {
 		t.Fatal("indexing did not create index file: ", err)
 	}
 	if err := os.Remove("test-data/tmp/groot-graph-0.gfa"); err != nil {

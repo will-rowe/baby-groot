@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/will-rowe/baby-groot/src/lshforest"
+	"github.com/will-rowe/baby-groot/src/graph"
 	"github.com/will-rowe/baby-groot/src/misc"
 )
 
@@ -14,11 +14,12 @@ func TestSketching(t *testing.T) {
 	if err := testParameters.Load("test-data/tmp/groot.gg"); err != nil {
 		t.Fatal(err)
 	}
-	lshf := lshforest.NewLSHforest(testParameters.SketchSize, testParameters.JSthresh)
-	if err := lshf.Load("test-data/tmp/groot.lshf"); err != nil {
+
+	lshe := &graph.ContainmentIndex{}
+	if err := lshe.Load("test-data/tmp/groot.lshe"); err != nil {
 		t.Fatal(err)
 	}
-	testParameters.AttachDB(lshf)
+	testParameters.AttachDB(lshe)
 
 	// run the pipeline
 	sketchingPipeline := NewPipeline()

@@ -26,7 +26,7 @@ func TestIndexBuild(t *testing.T) {
 		t.Fatal("wrong number of processes in pipeline")
 	}
 	indexingPipeline.Run()
-	if err := testParameters.SaveDB("test-data/tmp/groot.lshf"); err != nil {
+	if err := testParameters.SaveDB("test-data/tmp/groot.lshe"); err != nil {
 		t.Fatal(err)
 	}
 	if err := testParameters.Dump("test-data/tmp/groot.gg"); err != nil {
