@@ -29,7 +29,7 @@ func (IndexWrapper *IndexWrapper) runQuery(sketch []uint64, done <-chan struct{}
 		//  convert the query sketch from []uint64 to a string
 		stringifiedSketch := make([]string, IndexWrapper.forest.L)
 		for i := int32(0); i < IndexWrapper.forest.L; i++ {
-			stringifiedSketch[i] = compressSketch2String(sketch[i*IndexWrapper.forest.K : (i+1)*IndexWrapper.forest.K])
+			stringifiedSketch[i] = CompressSketch2String(sketch[i*IndexWrapper.forest.K : (i+1)*IndexWrapper.forest.K])
 		}
 
 		// don't send back multiple copies of the same key

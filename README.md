@@ -78,4 +78,11 @@ The original [GROOT paper](https://academic.oup.com/bioinformatics/article/34/21
   * currently only small file sizes are supported before browser complains
   * need to improve javascript data streaming function
   * add in more control over runtime parameters for BABY-GROOT
-  
+
+
+## Reverting changes
+
+* simplifying the windowing + weighting scheme
+  * windows which have identical sketches are merged
+  * instead of subpaths, have contained nodes (i.e. a sketch represents a set of nodes in the graph, which can come from multiple traversals)
+  * no longer need offsets etc. - just weighting all nodes, regardless of sketch offset on a segment

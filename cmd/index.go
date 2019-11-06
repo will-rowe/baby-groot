@@ -20,8 +20,8 @@ var (
 	kmerSize   *int     // size of k-mer
 	sketchSize *int     // size of MinHash sketch
 	windowSize *int     // length of query reads (used during alignment subcommand), needed as window length should ~= read length
-	jsThresh   *float64 // minimum Jaccard similarity for LSH forest query
-	kmvSketch  *bool    // use the K-Minimum Values MinHash algorithm instead of the K-Hash Functions
+	numPart    *int     // number of partitions in the LSH Ensemble
+	maxK       *int     // maxK in the LSH Ensemble
 	msaDir     *string  // directory containing the input MSA files
 	msaList    []string // the collected MSA files
 )
@@ -44,8 +44,8 @@ func init() {
 	kmerSize = indexCmd.Flags().IntP("kmerSize", "k", 21, "size of k-mer")
 	sketchSize = indexCmd.Flags().IntP("sketchSize", "s", 42, "size of MinHash sketch")
 	windowSize = indexCmd.Flags().IntP("windowSize", "w", 100, "size of window to sketch graph traversals with")
-	jsThresh = indexCmd.Flags().Float64P("jsThresh", "j", 0.99, "minimum Jaccard similarity for a seed to be recorded")
-	kmvSketch = indexCmd.Flags().Bool("kmv", false, "use the KMV MinHash algorithm instead of KHF")
+	numPart = indexCmd.Flags().IntP("numPart", "x", 8, "number of partitions in the LSH Ensemble")
+	maxK = indexCmd.Flags().IntP("maxK", "y", 4, "maxK in the LSH Ensemble")
 	msaDir = indexCmd.Flags().StringP("msaDir", "m", "", "directory containing the clustered references (MSA files) - required")
 	indexCmd.MarkFlagRequired("msaDir")
 	RootCmd.AddCommand(indexCmd)
@@ -86,22 +86,18 @@ func runIndex() {
 	log.Printf("\tprocessors: %d", *proc)
 	log.Printf("\tk-mer size: %d", *kmerSize)
 	log.Printf("\tsketch size: %d", *sketchSize)
-	if *kmvSketch {
-		log.Printf("\tMinHash algorithm: K-Minimum Values")
-	} else {
-		log.Printf("\tMinHash algorithm: K-Hash Functions")
-	}
 	log.Printf("\tgraph window size: %d", *windowSize)
-	log.Printf("\tminimum Jaccard similarity: %0.2f", *jsThresh)
+	log.Printf("\tnum. partitions: %d", *numPart)
+	log.Printf("\tmax. K: %d", *maxK)
 
 	// record the runtime information for the index sub command
 	info := &pipeline.Info{
 		Version:    version.VERSION,
 		KmerSize:   *kmerSize,
 		SketchSize: *sketchSize,
-		KMVsketch:  *kmvSketch,
-		JSthresh:   *jsThresh,
 		WindowSize: *windowSize,
+		NumPart:    *numPart,
+		MaxK:       *maxK,
 		IndexDir:   *indexDir,
 	}
 
@@ -127,7 +123,7 @@ func runIndex() {
 	log.Print("creating graphs, sketching traversals and indexing...")
 	indexingPipeline.Run()
 	log.Printf("writing index files in \"%v\"...", *indexDir)
-	misc.ErrorCheck(info.SaveDB(*indexDir + "/groot.lshf"))
+	misc.ErrorCheck(info.SaveDB(*indexDir + "/groot.lshe"))
 	misc.ErrorCheck(info.Dump(*indexDir + "/groot.gg"))
 	log.Printf("finished in %s", time.Since(start))
 }

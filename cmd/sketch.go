@@ -9,7 +9,7 @@ import (
 
 	"github.com/pkg/profile"
 	"github.com/spf13/cobra"
-	"github.com/will-rowe/baby-groot/src/lshforest"
+	"github.com/will-rowe/baby-groot/src/graph"
 	"github.com/will-rowe/baby-groot/src/misc"
 	"github.com/will-rowe/baby-groot/src/pipeline"
 	"github.com/will-rowe/baby-groot/src/version"
@@ -23,11 +23,12 @@ const MinionMultiplier = 1
 
 // the command line arguments
 var (
-	fastq           *[]string                                                         // list of FASTQ files to align
-	fasta           *bool                                                             // flag to treat input as fasta sequences
-	minKmerCoverage *float64                                                          // the minimum k-mer coverage per base of a segment
-	graphDir        *string                                                           // directory to save gfa graphs to
-	defaultGraphDir = "./groot-graphs-" + string(time.Now().Format("20060102150405")) // a default graphDir
+	fastq                *[]string                                                         // list of FASTQ files to align
+	fasta                *bool                                                             // flag to treat input as fasta sequences
+	containmentThreshold *float64                                                          // the containment threshold for the LSH ensemble
+	minKmerCoverage      *float64                                                          // the minimum k-mer coverage per base of a segment
+	graphDir             *string                                                           // directory to save gfa graphs to
+	defaultGraphDir      = "./groot-graphs-" + string(time.Now().Format("20060102150405")) // a default graphDir
 )
 
 // sketchCmd is used by cobra
@@ -47,6 +48,7 @@ var sketchCmd = &cobra.Command{
 func init() {
 	fastq = sketchCmd.Flags().StringSliceP("fastq", "f", []string{}, "FASTQ file(s) to align")
 	fasta = sketchCmd.Flags().Bool("fasta", false, "if set, the input will be treated as fasta sequence(s) (experimental feature)")
+	containmentThreshold = sketchCmd.Flags().Float64P("contThresh", "t", 0.95, "containment threshold for the LSH ensemble")
 	minKmerCoverage = sketchCmd.Flags().Float64P("minKmerCov", "c", 1.0, "minimum number of k-mers covering each base of a graph segment")
 	graphDir = sketchCmd.PersistentFlags().StringP("graphDir", "g", defaultGraphDir, "directory to save variation graphs to")
 	RootCmd.AddCommand(sketchCmd)
@@ -100,30 +102,27 @@ func runSketch() {
 	}
 	log.Printf("\tk-mer size: %d\n", info.KmerSize)
 	log.Printf("\tsketch size: %d\n", info.SketchSize)
-	log.Printf("\tJaccard similarity theshold: %0.2f\n", info.JSthresh)
 	log.Printf("\twindow size used in indexing: %d\n", info.WindowSize)
 	log.Print("loading the graphs...")
 	log.Printf("\tnumber of variation graphs: %d\n", len(info.Store))
-	log.Print("loading the LSH Forest...")
-	lshf := lshforest.NewLSHforest(info.SketchSize, info.JSthresh)
-	misc.ErrorCheck(lshf.Load(*indexDir + "/groot.lshf"))
-	info.AttachDB(lshf)
-	numHF, numBucks := info.GetDBinfo()
-	log.Printf("\tnumber of LSH Forest buckets: %d\n", numBucks)
-	log.Printf("\tnumber of hash functions per bucket: %d\n", numHF)
-
+	log.Print("rebuilding the LSH Ensemble...")
+	lshe := &graph.ContainmentIndex{}
+	misc.ErrorCheck(lshe.Load(*indexDir + "/groot.lshe"))
+	info.AttachDB(lshe)
 	if *profiling {
-		log.Printf("\tloaded lshf file -> current memory usage %v", misc.PrintMemUsage())
+		log.Printf("\tloaded lshe file -> current memory usage %v", misc.PrintMemUsage())
 		runtime.GC()
 	}
 
 	// add the sketch information to the existing groot runtime information
 	info.NumProc = *proc * MinionMultiplier
 	info.Profiling = *profiling
+	info.ContainmentThreshold = *containmentThreshold
 	info.Sketch = pipeline.SketchCmd{
 		Fasta:           *fasta,
 		MinKmerCoverage: *minKmerCoverage,
 	}
+	log.Printf("\tcontainment threshold: %.2f\n", info.ContainmentThreshold)
 
 	// create the pipeline
 	log.Printf("initialising alignment pipeline...")
@@ -180,7 +179,7 @@ func alignParamCheck() error {
 	// check the index directory and files
 	misc.ErrorCheck(misc.CheckDir(*indexDir))
 	misc.ErrorCheck(misc.CheckFile(*indexDir + "/groot.gg"))
-	misc.ErrorCheck(misc.CheckFile(*indexDir + "/groot.lshf"))
+	misc.ErrorCheck(misc.CheckFile(*indexDir + "/groot.lshe"))
 
 	// setup the graphDir
 	if _, err := os.Stat(*graphDir); os.IsNotExist(err) {

@@ -23,7 +23,7 @@ Browser support is restricted to Chrome, Firefox and Opera for now.
 To browserify the js, build the WASM binary and run the development server:
 
 ``` bash
-make test
+make dev
 ```
 
 ## Commands used to build index

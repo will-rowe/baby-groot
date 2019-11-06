@@ -5,11 +5,17 @@ import (
 	"math"
 )
 
+// HashValueSize is 8, the number of byte used for each hash value
+const HashValueSize = 8
+const seed = 42
+
 // KHFsketch is the structure for the K-Hash Functions MinHash sketch of a set of k-mers
 type KHFsketch struct {
 	kmerSize   uint
 	sketchSize uint
 	sketch     []uint64
+	hf1        func(b []byte) uint64
+	hf2        func(b []byte) uint64
 }
 
 // NewKHFsketch is the constructor for a KHFsketch data structure
@@ -60,7 +66,7 @@ func (mh *KHFsketch) AddSequence(sequence []byte) error {
 		kmers[0] = (kmers[0]<<2 | uint64(c)) & bitmask
 
 		// get the reverse k-mer
-		kmers[1] = (kmers[1] >> 2) | (uint64(3)^uint64(c))<<bitshift
+		kmers[1] = (kmers[1] >> 2) | (uint64(3)-uint64(c))<<bitshift
 
 		// get the span of the k-mer
 		if uint(i+1) < mh.kmerSize {
@@ -74,12 +80,13 @@ func (mh *KHFsketch) AddSequence(sequence []byte) error {
 		}
 
 		// get the two base hashes
-		hv1 := hash64(kmers[strand], bitmask)<<8 | uint64(mh.kmerSize)
-		hv2 := splitmix64(kmers[strand])
+		//hv1 := hash64(kmers[strand], bitmask)<<8 | uint64(mh.kmerSize)
+		//hv2 := splitmix64(kmers[strand])
+		hv2 := hash64(kmers[strand], bitmask)<<8 | uint64(mh.kmerSize)
 
 		// try adding the k-mer in each slot of the sketch
 		for j, min := range mh.sketch {
-			hv := hv1 + uint64(j)*hv2
+			hv := kmers[strand] + uint64(j)*hv2
 			if hv < min {
 				mh.sketch[j] = hv
 			}

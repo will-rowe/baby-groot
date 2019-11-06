@@ -95,7 +95,6 @@ func runHaplotype() {
 	}
 	log.Printf("\tk-mer size: %d\n", info.KmerSize)
 	log.Printf("\tsketch size: %d\n", info.SketchSize)
-	log.Printf("\tJaccard similarity theshold: %0.2f\n", info.JSthresh)
 	log.Printf("\twindow size used in indexing: %d\n", info.WindowSize)
 	log.Print("loading the graphs...")
 	log.Printf("\tnumber of weighted GFAs for haplotyping: %d", len(graphList))

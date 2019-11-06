@@ -206,7 +206,7 @@ func (GrootGraph *GrootGraph) traverse(node *GrootGraphNode, nodeMap map[uint64]
 }
 
 // WindowGraph is a method to slide a window over each path through the graph, sketching the paths and getting window information
-func (GrootGraph *GrootGraph) WindowGraph(windowSize, kmerSize, sketchSize int, kmvSketch bool) chan *lshforest.Key {
+func (GrootGraph *GrootGraph) WindowGraph(windowSize, kmerSize, sketchSize int) chan *lshforest.Key {
 	// get the linear sequences for this graph
 	pathSeqs, err := GrootGraph.Graph2Seqs()
 	if err != nil {
@@ -247,33 +247,31 @@ func (GrootGraph *GrootGraph) WindowGraph(windowSize, kmerSize, sketchSize int, 
 			// window the sequence
 			numWindows := pathLength - windowSize + 1
 			for i := 0; i < numWindows; i++ {
+
 				// sketch the window
 				windowSeq := seqio.Sequence{Seq: sequence[i : i+windowSize]}
-				sketch, err := windowSeq.RunMinHash(kmerSize, sketchSize, kmvSketch, nil)
+				sketch, err := windowSeq.RunMinHash(kmerSize, sketchSize, false, nil)
 				if err != nil {
 					panic(err)
 				}
-				// get the subpath (make a copy and remove duplicates)
-				subpath := segs[i : i+windowSize]
-				sp := make([]uint64, 1, len(subpath))
-				for x, y := range subpath {
-					if x == 0 {
-						sp[0] = uint64(y)
-					} else {
-						if uint64(y) != sp[len(sp)-1] {
-							sp = append(sp, uint64(y))
-						}
-					}
+
+				// get the nodes in this window (i.e. the graph subpath)
+				subPath := segs[i : i+windowSize]
+
+				// convert the subPath to a map of contained nodes in this window
+				ContainedNodes := make(map[uint64]float64)
+				for _, y := range subPath {
+					ContainedNodes[uint64(y)]++
 				}
 
 				// populate the window struct
 				newWindow := &lshforest.Key{
-					GraphID: GrootGraph.GraphID,
-					Node:    segs[i],
-					OffSet:  offSets[i],
-					SubPath: sp,
-					Ref:     pathID,
-					Sketch:  sketch,
+					GraphID:        GrootGraph.GraphID,
+					Node:           segs[i],
+					OffSet:         offSets[i],
+					ContainedNodes: ContainedNodes,
+					Ref:            []uint32{pathID},
+					Sketch:         sketch,
 				}
 
 				// send this window
@@ -285,24 +283,119 @@ func (GrootGraph *GrootGraph) WindowGraph(windowSize, kmerSize, sketchSize int, 
 		wg.Wait()
 		close(windowChan)
 	}()
-	return windowChan
-}
 
-// IncrementSubPath is a method to adjust the weight of segments within a subpath through the graph
-//  - given a subpath through a graph, the offset in the first segment, and the number of k-mers in this subpath
-//  - increment the weight of each segment contained in that subpath by their share of the k-mer coverage for the window
-func (GrootGraph *GrootGraph) IncrementSubPath(subPath []uint64, offSet uint32, numKmers float64) error {
+	// receive each window from the graph, combining windows with the same sketch
+	sketchSeen := make(map[string]*lshforest.Key)
+	for window := range windowChan {
+		stringifiedSketch := lshforest.CompressSketch2String(window.Sketch)
 
-	// check the subpath contains segments
-	if len(subPath) < 1 {
-		return fmt.Errorf("subpath encountered that does not include any segments")
+		// identical sketch found, so combine windows
+		if existingWindow, ok := sketchSeen[stringifiedSketch]; ok {
+
+			// add nodes to the contained nodes list
+			for node := range window.ContainedNodes {
+				existingWindow.ContainedNodes[node]++
+			}
+
+			// add pathID
+			existingWindow.Ref = append(existingWindow.Ref, window.Ref...)
+		} else {
+			sketchSeen[stringifiedSketch] = window
+		}
 	}
 
-	// if the subPath is only one segment, then it is straightforward to increment
-	if len(subPath) == 1 {
-		node, err := GrootGraph.GetNode(subPath[0])
+	// this method returns a channel, which receives windows as they are made
+	windowChan2 := make(chan *lshforest.Key)
+	var wg2 sync.WaitGroup
+	wg2.Add(1)
+	go func() {
+		for _, window := range sketchSeen {
+			windowChan2 <- window
+		}
+		wg2.Done()
+	}()
+
+	go func() {
+		wg2.Wait()
+		close(windowChan2)
+	}()
+
+	return windowChan2
+}
+
+/*
+TEST: incrementing any node belonging to a sketch
+TODO: if this works, clean up the explanation / comments / variable names
+*/
+func (GrootGraph *GrootGraph) IncrementSubPath(ContainedNodes map[uint64]float64, numKmers float64) error {
+
+	// check the ContainedNodes contains segments
+	if len(ContainedNodes) < 1 {
+		return fmt.Errorf("ContainedNodes encountered that does not include any segments")
+	}
+
+	// if the ContainedNodes is only one segment, then it is straightforward to increment
+	if len(ContainedNodes) == 1 {
+		for nodeID := range ContainedNodes {
+			node, err := GrootGraph.GetNode(nodeID)
+			if err != nil {
+				return fmt.Errorf("could not perform nodelookup to increment ContainedNodes weight")
+			}
+
+			// give this segment all the k-mers for this sketch
+			if err := node.IncrementKmerFreq(numKmers); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// otherwise, there are multiple segments in the path and we now work out the proportion of k-mer coverage belonging to each segment
+
+	// single pass to get total length of ContainedNodes
+	totalLength := 0.0
+	for segment := range ContainedNodes {
+		node, err := GrootGraph.GetNode(segment)
 		if err != nil {
-			return fmt.Errorf("could not perform nodelookup to increment subpath weight")
+			return err
+		}
+		totalLength += node.SegmentLength
+	}
+
+	// now iterate over the segments again, incrementing their weights
+	for segment, segCount := range ContainedNodes {
+		node, err := GrootGraph.GetNode(segment)
+		if err != nil {
+			return err
+		}
+		kmerShare := ((node.SegmentLength / totalLength) * numKmers) * float64(segCount)
+		if err := node.IncrementKmerFreq(kmerShare); err != nil {
+			return err
+		}
+	}
+
+	// record the number of kmers projected onto the graph
+	GrootGraph.IncrementKmerCount(uint64(numKmers))
+
+	return nil
+}
+
+/*
+// IncrementSubPath is a method to adjust the weight of segments within a ContainedNodes through the graph
+//  - given a ContainedNodes through a graph, the offset in the first segment, and the number of k-mers in this ContainedNodes
+//  - increment the weight of each segment contained in that ContainedNodes by their share of the k-mer coverage for the window
+func (GrootGraph *GrootGraph) IncrementSubPath(ContainedNodes []uint64, offSet uint32, numKmers float64) error {
+
+	// check the ContainedNodes contains segments
+	if len(ContainedNodes) < 1 {
+		return fmt.Errorf("ContainedNodes encountered that does not include any segments")
+	}
+
+	// if the ContainedNodes is only one segment, then it is straightforward to increment
+	if len(ContainedNodes) == 1 {
+		node, err := GrootGraph.GetNode(ContainedNodes[0])
+		if err != nil {
+			return fmt.Errorf("could not perform nodelookup to increment ContainedNodes weight")
 		}
 
 		// give this segment all the k-mers for this sketch
@@ -314,13 +407,13 @@ func (GrootGraph *GrootGraph) IncrementSubPath(subPath []uint64, offSet uint32, 
 	}
 
 	// otherwise, there are multiple segments in the path and we now work out the proportion of k-mer coverage belonging to each segment
-	segLengths := make([]float64, len(subPath))
-	kmerShare := make([]float64, len(subPath))
+	segLengths := make([]float64, len(ContainedNodes))
+	kmerShare := make([]float64, len(ContainedNodes))
 	totalLength := 0.0
 
-	// get all the segment lengths in the subpath
-	for i := 0; i < len(subPath); i++ {
-		node, err := GrootGraph.GetNode(subPath[i])
+	// get all the segment lengths in the ContainedNodes
+	for i := 0; i < len(ContainedNodes); i++ {
+		node, err := GrootGraph.GetNode(ContainedNodes[i])
 		if err != nil {
 			return err
 		}
@@ -334,13 +427,13 @@ func (GrootGraph *GrootGraph) IncrementSubPath(subPath []uint64, offSet uint32, 
 
 	// work out how many k-mers each segment gets
 	// TODO: without knowing read length, the final segment may get a disproportionate number of k-mers -- look for alternatives to address this
-	for i := 0; i < len(subPath); i++ {
+	for i := 0; i < len(ContainedNodes); i++ {
 		kmerShare[i] = (segLengths[i] / totalLength) * numKmers
 	}
 
 	// now iterate over the segments again, incrementing their weights
-	for i := 0; i < len(subPath); i++ {
-		node, err := GrootGraph.GetNode(subPath[i])
+	for i := 0; i < len(ContainedNodes); i++ {
+		node, err := GrootGraph.GetNode(ContainedNodes[i])
 		if err != nil {
 			return err
 		}
@@ -354,6 +447,7 @@ func (GrootGraph *GrootGraph) IncrementSubPath(subPath []uint64, offSet uint32, 
 
 	return nil
 }
+*/
 
 // Prune is a method to remove paths and segments from the graph if they have insufficient coverage
 // returns false if pruning results in no paths through the graph remaining

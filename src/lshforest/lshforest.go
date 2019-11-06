@@ -70,7 +70,7 @@ func (IndexWrapper *IndexWrapper) Add(graphWindow *Key) error {
 	// split the sketch into the right number of buckets, compressing each one down to a single string value
 	partitionedSketch := make([]string, IndexWrapper.forest.L)
 	for i := int32(0); i < IndexWrapper.forest.L; i++ {
-		partitionedSketch[i] = compressSketch2String(graphWindow.Sketch[i*IndexWrapper.forest.K : (i+1)*IndexWrapper.forest.K])
+		partitionedSketch[i] = CompressSketch2String(graphWindow.Sketch[i*IndexWrapper.forest.K : (i+1)*IndexWrapper.forest.K])
 	}
 
 	// iterate over each bucket of the initial hash tables in the LSH forest
@@ -225,7 +225,7 @@ func (IndexWrapper *IndexWrapper) convertSketchPartitionsToString() {
 	// for each bucket, convert each entry's SketchPartition to a stringified representation
 	for _, bucket := range IndexWrapper.forest.Buckets {
 		for i := 0; i < len(bucket.Pairs); i++ {
-			bucket.Pairs[i].SubSequence = compressSketch2String(bucket.Pairs[i].SketchPartition)
+			bucket.Pairs[i].SubSequence = CompressSketch2String(bucket.Pairs[i].SketchPartition)
 
 			// remove the sketch partition as we only need the stringified version now
 			bucket.Pairs[i].SketchPartition = []uint64{}
@@ -233,8 +233,8 @@ func (IndexWrapper *IndexWrapper) convertSketchPartitionsToString() {
 	}
 }
 
-// compressSketch2String is a function to compress an array of unsigned integers as a string - taken from https://github.com/ekzhu/minhash-lsh
-func compressSketch2String(sketch []uint64) string {
+// CompressSketch2String is a function to compress an array of unsigned integers as a string - taken from https://github.com/ekzhu/minhash-lsh
+func CompressSketch2String(sketch []uint64) string {
 	s := make([]byte, HASH_SIZE*len(sketch))
 	buf := make([]byte, 8)
 	for i, v := range sketch {
