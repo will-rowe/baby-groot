@@ -5,11 +5,17 @@ import (
 	"math"
 )
 
+// HashValueSize is 8, the number of byte used for each hash value
+const HashValueSize = 8
+const seed = 42
+
 // KHFsketch is the structure for the K-Hash Functions MinHash sketch of a set of k-mers
 type KHFsketch struct {
 	kmerSize   uint
 	sketchSize uint
 	sketch     []uint64
+	hf1        func(b []byte) uint64
+	hf2        func(b []byte) uint64
 }
 
 // NewKHFsketch is the constructor for a KHFsketch data structure

@@ -33,11 +33,11 @@ var testParameters = &Info{
 	NumProc:              1,
 	Version:              version.VERSION,
 	KmerSize:             31,
-	SketchSize:           31,
+	SketchSize:           50,
 	WindowSize:           100,
 	NumPart:              8,
 	MaxK:                 4,
-	ContainmentThreshold: 1.0,
+	ContainmentThreshold: 0.99,
 	IndexDir:             "test-data/tmp",
 	Sketch: SketchCmd{
 		MinKmerCoverage: 10,
@@ -47,7 +47,7 @@ var testParameters = &Info{
 	Haplotype: HaploCmd{
 		Cutoff:        1.0,
 		MaxIterations: 10000,
-		MinIterations: 100,
+		MinIterations: 50,
 		HaploDir:      "test-data/tmp",
 	},
 }
