@@ -105,15 +105,9 @@ func (ContainmentIndex *ContainmentIndex) Load(filePath string) error {
 	if len(data) == 0 {
 		return fmt.Errorf("index appears empty")
 	}
-	return ContainmentIndex.LoadFromBytes(data)
-}
-
-// LoadFromBytes is a method to load a containment index from a byte array
-func (ContainmentIndex *ContainmentIndex) LoadFromBytes(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	decoder := gob.NewDecoder(buf)
-	var err error
-	if err = decoder.Decode(ContainmentIndex); err != nil {
+	if err := decoder.Decode(ContainmentIndex); err != nil {
 		return err
 	}
 	if ContainmentIndex.DomainRecords == nil {
@@ -145,11 +139,11 @@ func (ContainmentIndex *ContainmentIndex) Query(querySig []uint64, querySize int
 			return nil, err
 		}
 
-		// TODO: make this an optional full containment check
-		if lshensemble.Containment(querySig, key.Sketch, querySize, ContainmentIndex.WindowSize) < containmentThreshold {
-			continue
+		// full containment check
+		// TODO: this should be optional
+		if lshensemble.Containment(querySig, key.Sketch, querySize, ContainmentIndex.WindowSize) > containmentThreshold {
+			results = append(results, key)
 		}
-		results = append(results, key)
 	}
 	return results, nil
 }
