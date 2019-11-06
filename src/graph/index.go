@@ -105,8 +105,15 @@ func (ContainmentIndex *ContainmentIndex) Load(filePath string) error {
 	if len(data) == 0 {
 		return fmt.Errorf("index appears empty")
 	}
+
+	return ContainmentIndex.LoadFromBytes(data)
+}
+
+// LoadFromBytes is a method to load the containment index from a byte array
+func (ContainmentIndex *ContainmentIndex) LoadFromBytes(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	decoder := gob.NewDecoder(buf)
+	var err error
 	if err := decoder.Decode(ContainmentIndex); err != nil {
 		return err
 	}
