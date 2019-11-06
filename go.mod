@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/adam-hanna/arrayOperations v0.2.5
 	github.com/biogo/biogo v1.0.1
-	github.com/dgryski/go-minhash v0.0.0-20190315135803-ad340ca03076
+	github.com/dgryski/go-minhash v0.0.0-20190315135803-ad340ca03076 // indirect
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/ekzhu/lshensemble v1.1.0
 	github.com/golang/protobuf v1.3.2
