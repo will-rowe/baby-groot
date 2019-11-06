@@ -33,7 +33,7 @@ var testParameters = &Info{
 	NumProc:              1,
 	Version:              version.VERSION,
 	KmerSize:             31,
-	SketchSize:           50,
+	SketchSize:           30,
 	WindowSize:           100,
 	NumPart:              8,
 	MaxK:                 4,

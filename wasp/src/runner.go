@@ -49,7 +49,7 @@ func (GrootWASM *GrootWASM) inputCheck() interface{} {
 	GrootWASM.info.AttachDB(lshe)
 
 	// TODO: check the parameters
-	GrootWASM.info.ContainmentThreshold = 1.0
+	GrootWASM.info.ContainmentThreshold = 0.99
 
 	/////////////////////////////////////////////////
 	// TODO: have these parameters set by the user
