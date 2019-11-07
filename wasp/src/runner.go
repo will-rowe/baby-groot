@@ -16,19 +16,23 @@ func (GrootWASM *GrootWASM) inputCheck() interface{} {
 	fmt.Println("checking input...")
 	GrootWASM.toggleDiv("spinner")
 
-	// check the input first
+	// check the input files first
 	if len(GrootWASM.fastqFiles) == 0 {
 		GrootWASM.statusUpdate("> no FASTQ files selected!")
 		return nil
 	}
 	if len(GrootWASM.graphBuffer) == 0 {
-		GrootWASM.statusUpdate("> can't find graphs")
+		GrootWASM.statusUpdate("> can't load graphs from buffer")
 		return nil
 	}
 	if len(GrootWASM.indexBuffer) == 0 {
-		GrootWASM.statusUpdate("> can't find index")
+		GrootWASM.statusUpdate("> can't load index from buffer")
 		return nil
 	}
+	GrootWASM.iconUpdate("inputIcon")
+
+	fmt.Println(GrootWASM.info)
+	GrootWASM.iconUpdate("paramIcon")
 
 	// read the index files
 	if err := GrootWASM.info.LoadFromBytes(GrootWASM.graphBuffer); err != nil {
@@ -43,28 +47,8 @@ func (GrootWASM *GrootWASM) inputCheck() interface{} {
 		return nil
 	}
 
-	// TODO: play with this value - there is only one CPU available to WASM but
-	// this value actually just controls the number of go routines
-	GrootWASM.info.NumProc = 4
+	// attach the index info to the runtime info
 	GrootWASM.info.AttachDB(lshe)
-
-	// TODO: check the parameters
-	GrootWASM.info.ContainmentThreshold = 0.99
-
-	/////////////////////////////////////////////////
-	// TODO: have these parameters set by the user
-	GrootWASM.info.Sketch = pipeline.SketchCmd{
-		MinKmerCoverage: 10,
-		BloomFilter:     false,
-		Fasta:           false,
-	}
-	GrootWASM.info.Haplotype = pipeline.HaploCmd{
-		Cutoff:        1.0,
-		MaxIterations: 10000,
-		MinIterations: 50,
-		HaploDir:      ".",
-	}
-	/////////////////////////////////////////////////
 
 	// update the page
 	GrootWASM.toggleDiv("spinner")
@@ -72,8 +56,7 @@ func (GrootWASM *GrootWASM) inputCheck() interface{} {
 		GrootWASM.statusUpdate("> index didn't load!")
 		return nil
 	}
-	GrootWASM.iconUpdate("inputIcon")
-	GrootWASM.iconUpdate("paramIcon")
+
 	GrootWASM.statusUpdate("> input is set")
 	fmt.Println("I AM GROOT")
 	GrootWASM.inputChecked = true
@@ -84,6 +67,7 @@ func (GrootWASM *GrootWASM) inputCheck() interface{} {
 func (GrootWASM *GrootWASM) setupGrootCb() {
 	GrootWASM.grootCb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		go func() {
+
 			// stop GROOT?
 			if GrootWASM.running == true {
 				GrootWASM.running = false

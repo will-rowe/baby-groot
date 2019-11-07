@@ -13,8 +13,8 @@
     <div id="wrapper"></div>
     <div id="spinner"></div>
     <div class="overlay">
-        <object id="honeycomb" type="image/svg+xml" data="assets/images/overlay.svg">
-            <img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png" alt="honeycomb">
+        <object type="image/svg+xml" data="assets/images/overlay.svg">
+            <img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png">
         </object>
     </div>
 
@@ -76,7 +76,7 @@
                         <option value="index3" disabled>index 3</option>
                     </select>
                     <br />
-                    <button id="closeInputModal"><span>done</span></button>
+                    <button onclick="closeModal('inputModal')"><span>done</span></button>
                     <br />
 
                 </div>
@@ -86,19 +86,24 @@
             <div id="parametersModal" class="modal">
                 <div class="modal-content">
                     <span class="close-modal">&#215;</span>
+                    <h2>Set parameters</h2>
+                    <sub>note: the defaults are pretty good!</sub>
+                    <hr />
                     <ul>
                         <li>
-                            <p title="parameter 1">Slider A (<output id="param1value">0</output>):</p>
-                            <input type="range" min="-1" max="1" value="0" step="0.1" id="param1" name="param1slider" oninput="param1value.value = param1.value">
+                            <p title="cThresh">Containment threshold (<output id="cThreshValue">0.99</output>):</p>
+                            <input type="range" min=0 max=1 value=0.99 step=0.01 id="cThresh" oninput="cThreshValue.value = cThresh.value">
                         </li>
                         <li>
-                            <p title="parameter 2">Slider B (<output id="param2value">0</output>):</p>
-                            <input type="range" min="-1" max="1" value="0" step="0.1" id="param2" name="param2slider" oninput="param2value.value = param2.value">
+                            <p title="mKmerCov">Min. k-mer coverage (<output id="mKmerCovValue">10</output>):</p>
+                            <input type="range" min="0" max="100" value="10" step="1" id="mKmerCov" oninput="mKmerCovValue.value = mKmerCov.value">
                         </li>
                     </ul>
-                    <button onclick="iconUpdate('paramIcon'); statusUpdate('status', '> parameters are set')"><span>set
+                    <br />
+                    <button onclick="updateParameters(cThresh.value, mKmerCov.value); closeModal('parametersModal'); iconUpdate('paramIcon'); statusUpdate('status', '> parameters are set')"><span>set
                             these
                             parameters!</span></button>
+                    <br />
                 </div>
             </div>
 
@@ -118,6 +123,9 @@
                         <tbody id="resultsContent"></tbody>
                     </table>
                     <div id="runTime"></div>
+                    <br />
+                    <button onclick="javascript:history.go(0)"><span>reload app</span></button>
+                    <br />
                 </div>
             </div>
 
@@ -178,9 +186,9 @@
                 }
             }
         }
-        document.getElementById('closeInputModal').addEventListener('click', function() {
-            document.getElementById('inputModal').style.display = "none";
-        })
+        closeModal = function(id) {
+            document.getElementById(id).style.display = "none";
+        }
     </script>
 
 </body>

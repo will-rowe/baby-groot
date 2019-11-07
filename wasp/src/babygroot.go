@@ -28,8 +28,26 @@ type GrootWASM struct {
 
 // New returns a new instance of GrootWASM
 func New() *GrootWASM {
+
+	// populate the basic runtime info
+	runtime := &pipeline.Info{
+		NumProc: 1, // TODO: play with this value - there is only one CPU available to WASM but this value also controls the number of go routines
+		Sketch: pipeline.SketchCmd{
+			MinKmerCoverage: 10,
+			BloomFilter:     false,
+			Fasta:           false,
+		},
+		Haplotype: pipeline.HaploCmd{
+			Cutoff:        1.0,
+			MaxIterations: 10000,
+			MinIterations: 50,
+			HaploDir:      ".",
+		},
+	}
+
+	// return a new wasm instance
 	return &GrootWASM{
-		info:       new(pipeline.Info),
+		info:       runtime,
 		console:    js.Global().Get("console"),
 		fastqInput: make(chan []byte, pipeline.BUFFERSIZE),
 		done:       make(chan struct{}),
@@ -41,6 +59,7 @@ func (GrootWASM *GrootWASM) Start() {
 	defer GrootWASM.releaseCallbacks()
 
 	// the call backs for loading the data
+	js.Global().Set("updateParameters", js.FuncOf(GrootWASM.updateParameters))
 	js.Global().Set("getFiles", js.FuncOf(GrootWASM.getFiles))
 	js.Global().Set("munchFASTQ", js.FuncOf(GrootWASM.munchFASTQ))
 	js.Global().Set("loadGraphs", js.FuncOf(GrootWASM.loadGraphs))
