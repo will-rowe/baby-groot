@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"runtime"
 	"sort"
 	"sync"
 
@@ -121,11 +122,18 @@ func (ContainmentIndex *ContainmentIndex) LoadFromBytes(data []byte) error {
 		return fmt.Errorf("loaded an empty index file")
 	}
 
-	// populate the LSH Ensemble
-	ContainmentIndex.LSHensemble, err = lshensemble.BootstrapLshEnsembleOptimal(ContainmentIndex.NumPart, ContainmentIndex.SketchSize, ContainmentIndex.MaxK,
-		func() <-chan *lshensemble.DomainRecord {
-			return lshensemble.Recs2Chan(ContainmentIndex.DomainRecords)
-		})
+	/*
+		// populate the LSH Ensemble
+		ContainmentIndex.LSHensemble, err = lshensemble.BootstrapLshEnsembleOptimal(ContainmentIndex.NumPart, ContainmentIndex.SketchSize, ContainmentIndex.MaxK,
+			func() <-chan *lshensemble.DomainRecord {
+				return lshensemble.Recs2Chan(ContainmentIndex.DomainRecords)
+			})
+	*/
+
+	// Create index using equi-depth partitioning
+	// You can also use BootstrapLshEnsemblePlusEquiDepth for better accuracy
+	ContainmentIndex.LSHensemble, err = lshensemble.BootstrapLshEnsembleEquiDepth(ContainmentIndex.NumPart, ContainmentIndex.SketchSize, ContainmentIndex.MaxK, len(ContainmentIndex.DomainRecords), recs2Chan(ContainmentIndex.DomainRecords))
+
 	ContainmentIndex.numSketches = len(ContainmentIndex.DomainRecords)
 
 	// get rid of the domain records as they are not needed anymore
@@ -164,4 +172,22 @@ func (ContainmentIndex *ContainmentIndex) getKey(keystring string) (*lshforest.K
 		return returnKey, nil
 	}
 	return nil, fmt.Errorf("key not found in LSH Ensemble: %v", keystring)
+}
+
+// recs2Chan is a utility function that converts a DomainRecord slice in memory to a DomainRecord channel
+func recs2Chan(recs []*lshensemble.DomainRecord) <-chan *lshensemble.DomainRecord {
+	c := make(chan *lshensemble.DomainRecord, 1000)
+	go func() {
+		for i, r := range recs {
+
+			// this is a massive kludge to fix the out of memory issue on index load in wasm
+			// see: https://github.com/golang/go/issues/32840#issuecomment-506929883
+			if runtime.GOOS == "js" && i%10000 == 0 {
+				runtime.GC()
+			}
+			c <- r
+		}
+		close(c)
+	}()
+	return c
 }
