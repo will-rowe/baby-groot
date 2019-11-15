@@ -82,8 +82,8 @@ func (GrootWASM *GrootWASM) getFiles(this js.Value, args []js.Value) interface{}
 		files[i] = val
 	}
 	if len(files) != 0 {
-		GrootWASM.fastqFiles = files
-		fmt.Printf("\tfound %d files\n", len(files))
+		fmt.Printf("\tadding files ready for WASM\n")
+		GrootWASM.fastqFiles = append(GrootWASM.fastqFiles, files...)
 	} else {
 		fmt.Println("no input files found")
 	}
@@ -100,7 +100,6 @@ func (GrootWASM *GrootWASM) munchFASTQ(this js.Value, args []js.Value) interface
 
 // closeFASTQchan
 func (GrootWASM *GrootWASM) closeFASTQchan(this js.Value, i []js.Value) interface{} {
-	fmt.Println("closing the FASTQ stream")
 	close(GrootWASM.fastqInput)
 	return nil
 }

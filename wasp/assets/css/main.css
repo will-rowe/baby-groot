@@ -802,6 +802,9 @@ a:hover {
     }
 }
 
+
+/* MODAL */
+
 .modal {
     position: fixed;
     left: 0;
@@ -813,13 +816,13 @@ a:hover {
 }
 
 .modal-content {
-    position: absolute;
+    position: relative;
     align-items: center;
     justify-content: center;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    padding: 1rem 1.5rem;
+    padding: 2.4rem;
     width: 50vw;
     height: 50vh;
     overflow: auto;
@@ -832,6 +835,8 @@ a:hover {
 sub {
     color: black;
     text-align: left;
+    padding-top: 1em;
+    padding-bottom: 1em;
 }
 
 .modal-content a {
@@ -882,10 +887,13 @@ sub {
     border: solid 2px var(--fg-colour);
 }
 
+
+/* BUTTONS */
+
 button {
-    height: 60px;
-    width: 210px;
-    border-radius: 50px;
+    height: 4em;
+    width: 40%;
+    border-radius: 100%;
     position: center;
     outline: none;
     text-decoration: none;
@@ -900,9 +908,7 @@ button {
 
 button span {
     color: var(--fg-colour);
-    font-size: 12px;
     font-weight: 500;
-    letter-spacing: 0.7px;
 }
 
 button:hover {
@@ -950,11 +956,15 @@ button:hover span {
     }
 }
 
+
+/* FASTQ UPLOADER */
+
 .file-upload {
     display: block;
     text-align: center;
     font-family: Helvetica, Arial, sans-serif;
     font-size: 12px;
+    padding-bottom: 2em;
 }
 
 .file-upload .file-select {
@@ -1064,29 +1074,14 @@ button:hover span {
     padding: 0 10px;
 }
 
-#filedrag {
-    display: none;
-    text-align: center;
-    padding: 1em 0;
-    margin: 1em 0;
-    color: black;
-    border: 2px dashed var(--fg-colour);
-    border-radius: 7px;
-    cursor: default;
-}
 
-#filedrag.hover {
-    color: var(--fg-colour);
-    border-color: var(--fg-colour);
-    border-style: solid;
-    box-shadow: inset 0 2px 2px black;
-}
+/* INDEX SELECTER */
 
 .select-css {
     cursor: default;
     display: block;
     border: 2px solid #dce4ec;
-    color: #34495e;
+    color: var(--fg-colour);
     cursor: pointer;
     height: 40px;
     line-height: 40px;
@@ -1108,16 +1103,19 @@ button:hover span {
 }
 
 .select-css:hover {
-    border-color: #34495e;
+    border-color: var(--fg-colour);
 }
 
 .select-css:focus {
-    border-color: #34495e;
+    border-color: var(--fg-colour);
 }
 
 .select-css option {
     font-weight: normal;
 }
+
+
+/* PAGE SPINNER */
 
 #spinner:not([hidden]) {
     position: fixed;
@@ -1163,6 +1161,9 @@ button:hover span {
     transition: opacity 1000ms;
 }
 
+
+/* STREAM PROGRESS BAR */
+
 #progress-container {
     margin-top: 2em;
     margin: 0 auto;
@@ -1177,4 +1178,126 @@ button:hover span {
     transform: translateX(-100%);
     opacity: 0;
     display: block;
+}
+
+
+/* SLIDERS */
+
+
+/* from https://codepen.io/thebabydino/pen/YPRENB */
+
+.sliderContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.box-minmax {
+    margin-top: 30px;
+    width: 608px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 20px;
+    color: #fff;
+}
+
+.box-minmax span:first-child {
+    margin-left: 10px;
+}
+
+.range-slider {
+    margin-top: 30vh;
+}
+
+.rs-range {
+    margin-top: 29px;
+    width: 600px;
+    -webkit-appearance: none;
+}
+
+.rs-range:focus {
+    outline: none;
+}
+
+.rs-range::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 1px;
+    cursor: pointer;
+    box-shadow: none;
+    background: #fff;
+    border-radius: 0px;
+    border: 0px solid #010101;
+}
+
+.rs-range::-moz-range-track {
+    width: 100%;
+    height: 1px;
+    cursor: pointer;
+    box-shadow: none;
+    background: #fff;
+    border-radius: 0px;
+    border: 0px solid #010101;
+}
+
+.rs-range::-webkit-slider-thumb {
+    box-shadow: none;
+    border: 0px solid #fff;
+    box-shadow: 0px 10px 10px rgba(0, 0, 0, 0.25);
+    height: 42px;
+    width: 22px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 1);
+    cursor: pointer;
+    -webkit-appearance: none;
+    margin-top: -20px;
+}
+
+.rs-range::-moz-range-thumb {
+    box-shadow: none;
+    border: 0px solid #fff;
+    box-shadow: 0px 10px 10px rgba(0, 0, 0, 0.25);
+    height: 42px;
+    width: 22px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 1);
+    cursor: pointer;
+    -webkit-appearance: none;
+    margin-top: -20px;
+}
+
+.rs-range::-moz-focus-outer {
+    border: 0;
+}
+
+.rs-label {
+    position: relative;
+    transform-origin: center center;
+    display: block;
+    width: 98px;
+    height: 98px;
+    background: transparent;
+    border-radius: 50%;
+    line-height: 30px;
+    text-align: center;
+    font-weight: bold;
+    padding-top: 22px;
+    box-sizing: border-box;
+    border: 2px solid #fff;
+    margin-top: 20px;
+    margin-left: -38px;
+    left: attr(value);
+    color: #fff;
+    font-style: normal;
+    font-weight: normal;
+    line-height: normal;
+    font-size: 36px;
+}
+
+.rs-label::after {
+    content: "kg";
+    display: block;
+    font-size: 20px;
+    letter-spacing: 0.07em;
+    margin-top: -2px;
 }

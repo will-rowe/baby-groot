@@ -13,7 +13,6 @@ const { Transform } = require('stream')
    HTML ID tags
    =========================================================================== */
 const $fastqUploader = document.getElementById('fastqUploader')
-const $filedrag = document.getElementById('filedrag')
 const $fastqFileName = document.getElementById('fastqFileName')
 const $fastqSelecter = document.getElementById('fastqSelecter')
 const $noFile = document.getElementById('noFile')
@@ -22,19 +21,6 @@ const $progressBar = document.getElementById('progress-bar')
 /* ===========================================================================
    FASTQ handling
    =========================================================================== */
-// initInputFiles gets the listeners ready for FASTQ files
-function initInputFiles() {
-    $fastqUploader.addEventListener('change', FileSelectHandler, false)
-    var xhr = new XMLHttpRequest()
-    if (xhr.upload) {
-        // file drop
-        $filedrag.addEventListener('dragover', FileDragHover, false)
-        $filedrag.addEventListener('dragleave', FileDragHover, false)
-        $filedrag.addEventListener('drop', FileSelectHandler, false)
-        $filedrag.style.display = 'block'
-    }
-}
-
 // FileDragHover is used to cancel event and hover styling
 function FileDragHover(e) {
     e.stopPropagation()
@@ -49,30 +35,32 @@ function FileSelectHandler(e) {
     // fetch FileList object
     var files = e.target.files || e.dataTransfer.files
     if (files.length != 0) {
+
+        // process all the FASTQ files
+        var fastqList = []
+        var fileNames = ""
+        for (var i = 0, f;
+            (f = files[i]); i++) {
+
+            // record the filename for the user
+            fileNames += f.name.replace('C:\\fakepath\\', '') + ','
+
+            // add the file for GROOT
+            fastqList.push(f)
+        }
+
+        // show the user the filenames
         $fastqSelecter.classList.add('active')
-        $fastqFileName.textContent = 'selected file(s):'
-        $noFile.textContent = ''
+        $fastqFileName.textContent = 'selected file(s): '
+        $noFile.innerHTML = fileNames
+
+        // pass the FASTQ file list to WASM
+        getFiles(fastqList)
+        iconUpdate('inputIcon')
     } else {
         $fastqSelecter.classList.remove('active')
         $noFile.textContent = 'no files :('
     }
-
-    // process all the FASTQ files
-    var fastqList = []
-    for (var i = 0, f;
-        (f = files[i]); i++) {
-        // add filename to the selector bar
-        var fileName = f.name.replace('C:\\fakepath\\', '')
-        $noFile.innerHTML += fileName + ','
-
-        // add the file for GROOT
-        // fastqList.push(URL.createObjectURL(f));
-        fastqList.push(f)
-    }
-
-    // pass the FASTQ file list to WASM
-    getFiles(fastqList)
-    iconUpdate('inputIcon')
 }
 
 /* ===========================================================================
@@ -90,12 +78,6 @@ function formatBytes(bytes) {
     else return (bytes / 1073741824).toFixed(2) + " GB";
 }
 
-const chunker = new Transform({
-    transform(chunk, encoding, callback) {
-        this.push(chunk)
-        callback()
-    }
-})
 
 function isGzip(data) {
     return data[0] === 31 && data[1] === 139
@@ -104,38 +86,55 @@ function isGzip(data) {
 function newParser() {
     return peek(function(data, swap) {
         if (isGzip(data)) return swap(null, new zlib.Unzip())
-        else return swap(null, chunker)
+        else return swap(null, new Transform({
+            transform(chunk, encoding, callback) {
+                this.push(chunk)
+                callback()
+            }
+        }))
     })
 }
 
 // this is the exported function - fastqStreamer - it is called by WASM when GROOT is ready to processes FASTQ data
-module.exports = function(fileArr) {
+module.exports = async function(fileArr) {
     var files = fileArr[0]
-    for (var i = 0; i < files.length; i++) {
+
+    // get the progress bar ready
+    resetProgress()
+    $progressBar.style.opacity = '1.0'
+
+    // process the file list
+    for (let file of files) {
+        await streamFile(file)
+        console.log('ended stream: ', file.name)
+        resetProgress()
+    }
+
+    // closeFASTQchan is a close down signal, sent to WASM once all the FASTQ data has been sent
+    console.log('closing the WASM FASTQ channel')
+    closeFASTQchan()
+}
+
+// streamFile is called for each file sent to the fastqStreamer function
+async function streamFile(file) {
+    return new Promise(resolve => {
 
         // set up the data stream and check errors
-        var file = files[i]
-        var stream = new FileReadStream(file)
+        let stream = new FileReadStream(file)
         stream.reader.onerror = (e) => {
             console.error(e)
         }
-
-        // set up the vars 
-        var fileSize = formatBytes(stream._size)
-        var loadedFile = 0
-        var lastUpdate = 0
-
-        // get the progress bar ready
-        resetProgress()
-        $progressBar.style.opacity = '1.0'
-        console.log('streaming: ', file.name)
+        let fileSize = formatBytes(stream._size)
+        let loadedFile = 0
+        let lastUpdate = 0
+        console.log('started stream: ', file.name)
         statusUpdate('status', '> processed 0 / ' + fileSize)
 
         // monitor progress
         stream.reader.onprogress = data => {
             if (data.loaded == data.total && loadedFile < stream._size) {
                 loadedFile += data.loaded
-                var percentLoaded = Math.round((loadedFile / file.size) * 100);
+                let percentLoaded = Math.round((loadedFile / file.size) * 100);
                 $progressBar.style.transform = `translateX(${-(100 - percentLoaded)}%)`
                 if (percentLoaded % 2 == 0 && percentLoaded != lastUpdate) {
                     statusUpdate(
@@ -151,22 +150,18 @@ module.exports = function(fileArr) {
         }
 
         // set up the parser
-        var parser = newParser()
-        parser
-            .on('data', function(data) {
-                // munchFASTQ is linked to WASM and used to send the data to Go
-                //console.log(data.toString())
-                munchFASTQ(data, data.length)
-            })
-            .on('end', function() {
-                // closeFASTQchan is a close down signal, sent to WASM once all the FASTQ data has been sent
-                closeFASTQchan()
-                resetProgress()
-            })
+        let parser = newParser()
+        parser.on('data', function(data) {
+
+            // munchFASTQ is linked to WASM and used to send the data to Go
+            munchFASTQ(data, data.length)
+        })
 
         // pipe the data stream into the parser
         stream.pipe(parser)
-    }
+        stream.on("end", () => resolve());
+        stream.on("error", error => reject(error));
+    })
 }
 
 /* ===========================================================================
@@ -261,9 +256,13 @@ const startApplication = () => {
                 go.importObject
             ).then(result => {
                 go.run(result.instance)
-                initInputFiles()
-                    //getGraphs('assets/groot-files/index/groot.gg')
-                    //getLSHforest('assets/groot-files/index/groot.lshe')
+
+                // set up the fastq listener
+                $fastqUploader.addEventListener('change', FileSelectHandler, false)
+
+                // load the graphs and index file
+                //getGraphs('assets/groot-files/index/groot.gg')
+                //getLSHforest('assets/groot-files/index/groot.lshe')
                 getGraphs('assets/groot-files/dummy-db/groot.gg')
                 getLSHforest('assets/groot-files/dummy-db/groot.lshe')
                 toggleDiv('spinner')

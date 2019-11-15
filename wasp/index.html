@@ -13,9 +13,14 @@
     <div id="wrapper"></div>
     <div id="spinner"></div>
     <div class="overlay">
+        <object>
+
+        </object>
+        <!---
         <object type="image/svg+xml" data="assets/images/overlay.svg">
             <img src="https://github.com/will-rowe/groot/raw/master/paper/img/misc/groot-logo.png">
         </object>
+        --->
     </div>
 
     <div id="main">
@@ -56,28 +61,18 @@
                 <div class="modal-content">
                     <span class="close-modal">&#215;</span>
                     <h2>Select Files</h2>
-                    <sub>note: no files are actually sent anywhere!</sub>
                     <hr />
-                    <!-- FASTQ -->
-                    <p>1. select FASTQ files:</p>
+
+                    <p>select FASTQ files</p>
                     <div class="file-upload" id="fastqSelecter">
                         <div class="file-select">
-                            <div class="file-select-button" id="fastqFileName">select FASTQ file(s): </div>
+                            <div class="file-select-button" id="fastqFileName">browse </div>
                             <div class="file-select-name" id="noFile">no file selected...</div>
                             <input type="file" name="fastqUploader[]" id="fastqUploader" multiple>
                         </div>
                     </div>
-                    <div id="filedrag">or drop FASTQ files here...</div>
-                    <!-- INDEX -->
-                    <p>2. select an index:</p>
-                    <select class="select-css" id="indexSelecter">
-                        <option value="groot-files/groot.index" selected>ARG-ANNOT (default)</option>
-                        <option value="index 2" disabled>index 2</option>
-                        <option value="index3" disabled>index 3</option>
-                    </select>
-                    <br />
+
                     <button onclick="closeModal('inputModal')"><span>done</span></button>
-                    <br />
 
                 </div>
             </div>
@@ -89,16 +84,22 @@
                     <h2>Set parameters</h2>
                     <sub>note: the defaults are pretty good!</sub>
                     <hr />
-                    <ul>
-                        <li>
-                            <p title="cThresh">Containment threshold (<output id="cThreshValue">0.99</output>):</p>
-                            <input type="range" min=0 max=1 value=0.99 step=0.01 id="cThresh" oninput="cThreshValue.value = cThresh.value">
-                        </li>
-                        <li>
-                            <p title="mKmerCov">Min. k-mer coverage (<output id="mKmerCovValue">10</output>):</p>
-                            <input type="range" min="0" max="100" value="10" step="1" id="mKmerCov" oninput="mKmerCovValue.value = mKmerCov.value">
-                        </li>
-                    </ul>
+
+                    <p title="cThresh">Containment threshold (<output id="cThreshValue">0.99</output>):</p>
+                    <input type="range" min=0 max=1 value=0.99 step=0.01 id="cThresh" oninput="cThreshValue.value = cThresh.value">
+
+                    <p title="mKmerCov">Min. k-mer coverage (<output id="mKmerCovValue">10</output>):</p>
+                    <input type="range" min="0" max="100" value="10" step="1" id="mKmerCov" oninput="mKmerCovValue.value = mKmerCov.value">
+
+
+                    <!-- INDEX SELECTER -->
+                    <p>Change the index:</p>
+                    <select class="select-css" id="indexSelecter">
+                        <option value="groot-files/groot.index" selected>ARG-ANNOT (default)</option>
+                        <option value="index 2" disabled>index 2</option>
+                        <option value="index3" disabled>index 3</option>
+                    </select>
+
                     <br />
                     <button onclick="updateParameters(cThresh.value, mKmerCov.value); closeModal('parametersModal'); iconUpdate('paramIcon'); statusUpdate('status', '> parameters are set')"><span>set
                             these
@@ -116,7 +117,7 @@
                     <table class="results-table">
                         <thead>
                             <tr>
-                                <th>Haplotype</th>
+                                <th>Gene</th>
                                 <th>Abundance</th>
                             </tr>
                         </thead>
@@ -186,7 +187,8 @@
                 }
             }
         }
-        closeModal = function(id) {
+
+        function closeModal(id) {
             document.getElementById(id).style.display = "none";
         }
     </script>

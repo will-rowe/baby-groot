@@ -341,6 +341,9 @@ func (proc *ReadMapper) Run() {
 	}
 	log.Print("processing graphs...")
 	log.Printf("\ttotal number of k-mers projected onto graphs: %d\n", proc.readStats[3])
+
+	// fix for Wasm: needs total number of processed kmers recording as we don't recalc this later
+	proc.info.Haplotype.TotalKmers = proc.readStats[3]
 }
 
 // GraphPruner is a pipeline process to prune the graphs post mapping

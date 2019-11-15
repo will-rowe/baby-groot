@@ -3,7 +3,7 @@ INDEX='assets/groot-files/index'
 
 all: build index
 
-dev: build index server
+dev: build server
 
 build:
 	npm run build --prefix assets/js/
@@ -11,7 +11,7 @@ build:
 
 index:
 	go run ../main.go get -d arg-annot
-	go run ../main.go index -m arg-annot* -i ${INDEX} -k 31 -s 31 -w 100
+	go run ../main.go index -m arg-annot* -i ${INDEX} -k 31 -s 30 -w 100
 	rm -r arg-annot*
 
 server:

@@ -29,16 +29,17 @@ type GrootWASM struct {
 // New returns a new instance of GrootWASM
 func New() *GrootWASM {
 
-	// populate the basic runtime info
+	// populate the basic runtime info (this will be updated if the user decides to)
 	runtime := &pipeline.Info{
-		NumProc: 1, // TODO: play with this value - there is only one CPU available to WASM but this value also controls the number of go routines
+		NumProc:              1, // TODO: play with this value - there is only one CPU available to WASM but this value also controls the number of go routines
+		ContainmentThreshold: 0.99,
 		Sketch: pipeline.SketchCmd{
-			MinKmerCoverage: 10,
 			BloomFilter:     false,
 			Fasta:           false,
+			MinKmerCoverage: 10,
 		},
 		Haplotype: pipeline.HaploCmd{
-			Cutoff:        1.0,
+			Cutoff:        0.01,
 			MaxIterations: 10000,
 			MinIterations: 50,
 			HaploDir:      ".",

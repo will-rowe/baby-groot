@@ -122,7 +122,7 @@ func (GrootWASM *GrootWASM) setupGrootCb() {
 			sketchingPipeline.Run()
 			fmt.Println("pipeline finished")
 
-			// collect the output
+			// see how many reads mapped and number of k-mers processed
 			readStats := readMapper.CollectReadStats()
 			//foundPaths := graphPruner.CollectOutput()
 			//foundHaplotypes := haploParser.CollectOutput()
@@ -147,6 +147,7 @@ func (GrootWASM *GrootWASM) setupGrootCb() {
 					GrootWASM.results = true
 					fmt.Printf("\tgraph %d has %d called alleles after EM", g.GraphID, len(paths))
 					for i, path := range paths {
+						fmt.Println(abundances[i])
 						js.Global().Call("addResults", path, abundances[i])
 					}
 				}
@@ -158,6 +159,7 @@ func (GrootWASM *GrootWASM) setupGrootCb() {
 			GrootWASM.iconUpdate("startIcon")
 			if GrootWASM.results == false {
 				GrootWASM.statusUpdate("> no results found :(")
+				fmt.Println("no paths left after running EM")
 			} else {
 				GrootWASM.statusUpdate("> GROOT finished!")
 				secs := time.Since(startTime).Seconds()
