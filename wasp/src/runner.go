@@ -13,14 +13,19 @@ import (
 
 // inputCheck is the callback to check the input is correct
 func (GrootWASM *GrootWASM) inputCheck() interface{} {
-	fmt.Println("checking input...")
-	GrootWASM.toggleDiv("spinner")
 
 	// check the input files first
 	if len(GrootWASM.fastqFiles) == 0 {
 		GrootWASM.statusUpdate("> no FASTQ files selected!")
 		return nil
 	}
+	GrootWASM.iconUpdate("inputIcon")
+
+	// check the parameters
+	// TODO: this is where to check for alternative index requests
+	GrootWASM.iconUpdate("paramIcon")
+
+	// load the index files into WASM
 	if len(GrootWASM.graphBuffer) == 0 {
 		GrootWASM.statusUpdate("> can't load graphs from buffer")
 		return nil
@@ -29,12 +34,7 @@ func (GrootWASM *GrootWASM) inputCheck() interface{} {
 		GrootWASM.statusUpdate("> can't load index from buffer")
 		return nil
 	}
-	GrootWASM.iconUpdate("inputIcon")
 
-	fmt.Println(GrootWASM.info)
-	GrootWASM.iconUpdate("paramIcon")
-
-	// read the index files
 	if err := GrootWASM.info.LoadFromBytes(GrootWASM.graphBuffer); err != nil {
 		GrootWASM.statusUpdate("> failed to load GROOT graphs!")
 		fmt.Println(err)
@@ -49,15 +49,6 @@ func (GrootWASM *GrootWASM) inputCheck() interface{} {
 
 	// attach the index info to the runtime info
 	GrootWASM.info.AttachDB(lshe)
-
-	// update the page
-	GrootWASM.toggleDiv("spinner")
-	if GrootWASM.info == nil {
-		GrootWASM.statusUpdate("> index didn't load!")
-		return nil
-	}
-
-	GrootWASM.statusUpdate("> input is set")
 	fmt.Println("I AM GROOT")
 	GrootWASM.inputChecked = true
 	return nil
@@ -79,19 +70,28 @@ func (GrootWASM *GrootWASM) setupGrootCb() {
 				return
 			}
 
+			// start stuff
+			js.Global().Call("startRecord")
+			js.Global().Call("startLogo")
+
 			// check the input
-			GrootWASM.statusUpdate("> checking input...")
+			GrootWASM.statusUpdate("> loading the index...")
+			fmt.Println("checking input...")
+			GrootWASM.toggleDiv("spinner")
 			GrootWASM.inputCheck()
+			GrootWASM.toggleDiv("spinner")
 			if !GrootWASM.inputChecked {
 				GrootWASM.statusUpdate("> problem with input!")
+				return
+			}
+			if GrootWASM.info == nil {
+				GrootWASM.statusUpdate("> index didn't load!")
 				return
 			}
 
 			// start GROOT notifications
 			GrootWASM.running = true
 			GrootWASM.statusUpdate("> running GROOT...")
-			js.Global().Call("startRecord")
-			js.Global().Call("startLogo")
 			startTime := time.Now()
 
 			// set up the pipeline
@@ -126,7 +126,6 @@ func (GrootWASM *GrootWASM) setupGrootCb() {
 			readStats := readMapper.CollectReadStats()
 			//foundPaths := graphPruner.CollectOutput()
 			//foundHaplotypes := haploParser.CollectOutput()
-			fmt.Println("readStats: ", readStats)
 
 			// print some updates
 			if readStats[1] == 0 {
@@ -147,7 +146,6 @@ func (GrootWASM *GrootWASM) setupGrootCb() {
 					GrootWASM.results = true
 					fmt.Printf("\tgraph %d has %d called alleles after EM", g.GraphID, len(paths))
 					for i, path := range paths {
-						fmt.Println(abundances[i])
 						js.Global().Call("addResults", path, abundances[i])
 					}
 				}

@@ -78,7 +78,6 @@ function formatBytes(bytes) {
     else return (bytes / 1073741824).toFixed(2) + " GB";
 }
 
-
 function isGzip(data) {
     return data[0] === 31 && data[1] === 139
 }
@@ -261,10 +260,10 @@ const startApplication = () => {
                 $fastqUploader.addEventListener('change', FileSelectHandler, false)
 
                 // load the graphs and index file
-                //getGraphs('assets/groot-files/index/groot.gg')
-                //getLSHforest('assets/groot-files/index/groot.lshe')
-                getGraphs('assets/groot-files/dummy-db/groot.gg')
-                getLSHforest('assets/groot-files/dummy-db/groot.lshe')
+                getGraphs('assets/groot-files/index/groot.gg')
+                getLSHforest('assets/groot-files/index/groot.lshe')
+                //getGraphs('assets/groot-files/dummy-db/groot.gg')
+                //getLSHforest('assets/groot-files/dummy-db/groot.lshe')
                 toggleDiv('spinner')
                 statusUpdate('status', '> GROOT is ready!')
             })
