@@ -53,7 +53,7 @@ func TestWindowGraph(t *testing.T) {
 		t.Fatal(err)
 	}
 	counter := 0
-	for window := range grootGraph.WindowGraph(windowSize, kmerSize, sketchSize, false) {
+	for window := range grootGraph.WindowGraph(windowSize, kmerSize, sketchSize) {
 		//t.Log(window)
 		_ = window
 		counter++
